@@ -1,70 +1,179 @@
 @import "tailwindcss";
 
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* Swiss Design System - CoreSight */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
+@layer base {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    /* Swiss palette - clean, professional, high contrast */
+    --color-background: 250 250 250;
+    --color-surface: 255 255 255;
+    --color-surface-secondary: 245 245 247;
+    --color-border: 228 228 231;
+    --color-border-strong: 212 212 216;
+    
+    /* Text hierarchy */
+    --color-text-primary: 24 24 27;
+    --color-text-secondary: 82 82 91;
+    --color-text-tertiary: 161 161 170;
+    
+    /* Accent colors - minimal, purposeful */
+    --color-accent: 24 24 27;
+    --color-accent-hover: 39 39 42;
+    --color-success: 34 197 94;
+    --color-warning: 234 179 8;
+    --color-error: 239 68 68;
+    --color-info: 59 130 246;
+    
+    /* Spacing system (8px grid) */
+    --spacing-unit: 0.5rem;
   }
-  a:hover {
-    color: #747bff;
+  
+  body {
+    @apply bg-[rgb(var(--color-background))] text-[rgb(var(--color-text-primary))];
+    @apply font-sans antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 15px;
+    margin: 0;
+    min-height: 100vh;
   }
-  button {
-    background-color: #f9f9f9;
+  
+  /* Strong typographic hierarchy */
+  h1 { @apply text-3xl font-bold tracking-tight mb-6; }
+  h2 { @apply text-2xl font-bold tracking-tight mb-4; }
+  h3 { @apply text-xl font-semibold tracking-tight mb-3; }
+  h4 { @apply text-lg font-semibold tracking-tight mb-2; }
+  h5 { @apply text-base font-semibold tracking-tight mb-2; }
+  h6 { @apply text-sm font-semibold tracking-tight mb-2; }
+  
+  /* Clean link style */
+  a {
+    @apply text-[rgb(var(--color-accent))] underline decoration-1 underline-offset-2;
+    @apply hover:decoration-2 transition-all;
+  }
+}
+
+@layer components {
+  /* Card system */
+  .card {
+    @apply bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))];
+    @apply rounded-none shadow-sm;
+  }
+  
+  .card-header {
+    @apply border-b border-[rgb(var(--color-border))] p-6;
+  }
+  
+  .card-body {
+    @apply p-6;
+  }
+  
+  /* Button system - minimal, clear */
+  .btn {
+    @apply px-6 py-2.5 font-medium tracking-tight;
+    @apply rounded-none border transition-all;
+    @apply inline-flex items-center justify-center gap-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-[rgb(var(--color-accent))] text-white border-[rgb(var(--color-accent))];
+    @apply hover:bg-[rgb(var(--color-accent-hover))] hover:border-[rgb(var(--color-accent-hover))];
+  }
+  
+  .btn-secondary {
+    @apply bg-[rgb(var(--color-surface))] text-[rgb(var(--color-text-primary))];
+    @apply border-[rgb(var(--color-border-strong))];
+    @apply hover:bg-[rgb(var(--color-surface-secondary))];
+  }
+  
+  .btn-ghost {
+    @apply border-transparent hover:bg-[rgb(var(--color-surface-secondary))];
+  }
+  
+  /* Input system */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-none;
+    @apply bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))];
+    @apply text-[rgb(var(--color-text-primary))] placeholder:text-[rgb(var(--color-text-tertiary))];
+    @apply focus:outline-none focus:border-[rgb(var(--color-accent))] focus:ring-1 focus:ring-[rgb(var(--color-accent))];
+    @apply transition-all;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-[rgb(var(--color-text-secondary))] mb-2;
+  }
+  
+  /* Table system */
+  .table {
+    @apply w-full border-collapse;
+  }
+  
+  .table th {
+    @apply text-left text-xs font-semibold tracking-wider uppercase;
+    @apply text-[rgb(var(--color-text-secondary))] bg-[rgb(var(--color-surface-secondary))];
+    @apply border-y border-[rgb(var(--color-border))] px-4 py-3;
+  }
+  
+  .table td {
+    @apply border-b border-[rgb(var(--color-border))] px-4 py-4;
+    @apply text-sm text-[rgb(var(--color-text-primary))];
+  }
+  
+  .table tbody tr {
+    @apply hover:bg-[rgb(var(--color-surface-secondary))] transition-colors;
+  }
+  
+  /* Badge system */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-none;
+    @apply text-xs font-medium tracking-tight;
+    @apply border;
+  }
+  
+  .badge-success {
+    @apply bg-green-50 text-green-700 border-green-200;
+  }
+  
+  .badge-warning {
+    @apply bg-yellow-50 text-yellow-700 border-yellow-200;
+  }
+  
+  .badge-error {
+    @apply bg-red-50 text-red-700 border-red-200;
+  }
+  
+  .badge-info {
+    @apply bg-blue-50 text-blue-700 border-blue-200;
+  }
+  
+  .badge-neutral {
+    @apply bg-gray-50 text-gray-700 border-gray-200;
+  }
+  
+  /* Grid system - 8px baseline */
+  .grid-container {
+    @apply grid gap-6;
+  }
+  
+  /* Stat card */
+  .stat-card {
+    @apply bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))];
+    @apply rounded-none shadow-sm;
+    @apply p-6;
+  }
+  
+  .stat-label {
+    @apply text-xs font-medium tracking-wider uppercase;
+    @apply text-[rgb(var(--color-text-secondary))] mb-1;
+  }
+  
+  .stat-value {
+    @apply text-3xl font-bold tracking-tight;
+    @apply text-[rgb(var(--color-text-primary))];
+  }
+  
+  .stat-change {
+    @apply text-sm font-medium mt-2;
   }
 }

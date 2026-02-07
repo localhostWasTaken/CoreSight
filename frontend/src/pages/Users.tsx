@@ -1,0 +1,157 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { UserPlus, Mail, Trash2, Edit } from 'lucide-react';
+import AdminLayout from '../components/AdminLayout';
+import { userAPI } from '../lib/api';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  hourly_rate: number;
+  skills: string[];
+}
+
+export default function Users() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      const response = await userAPI.list();
+      setUsers(response.data);
+    } catch (err) {
+      setError('Failed to load users');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    
+    try {
+      await userAPI.delete(userId);
+      setUsers(users.filter(u => u.id !== userId));
+    } catch (err) {
+      alert('Failed to delete user');
+      console.error(err);
+    }
+  };
+
+  return (
+    <AdminLayout>
+      <div className="max-w-7xl">
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Users</h1>
+            <p className="text-[rgb(var(--color-text-secondary))]">
+              Manage team members and their profiles
+            </p>
+          </div>
+          <Link to="/users/new" className="btn btn-primary">
+            <UserPlus className="w-4 h-4" />
+            Add User
+          </Link>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Users Table */}
+        <div className="card">
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Hourly Rate</th>
+                  <th>Skills</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-[rgb(var(--color-text-secondary))]">
+                      Loading users...
+                    </td>
+                  </tr>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-[rgb(var(--color-text-secondary))]">
+                      No users found. Add your first user to get started.
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div className="font-medium">{user.name}</div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2 text-[rgb(var(--color-text-secondary))]">
+                          <Mail className="w-4 h-4" />
+                          {user.email}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-neutral">{user.role}</span>
+                      </td>
+                      <td>${user.hourly_rate}/hr</td>
+                      <td>
+                        <div className="flex gap-1 flex-wrap">
+                          {user.skills.slice(0, 3).map((skill, idx) => (
+                            <span key={idx} className="badge badge-info text-xs">
+                              {skill}
+                            </span>
+                          ))}
+                          {user.skills.length > 3 && (
+                            <span className="text-xs text-[rgb(var(--color-text-tertiary))]">
+                              +{user.skills.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex gap-2 justify-end">
+                          <Link 
+                            to={`/users/${user.id}`}
+                            className="btn btn-ghost px-3 py-1 text-xs no-underline"
+                          >
+                            <Edit className="w-3 h-3" />
+                            Edit
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(user.id)}
+                            className="btn btn-ghost px-3 py-1 text-xs text-[rgb(var(--color-error))]"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
