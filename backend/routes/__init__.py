@@ -13,9 +13,10 @@ from .jobs import router as jobs_router
 from .webhooks import router as webhooks_router
 from .issues import router as issues_router
 from .commits import router as commits_router
+from .analytics import router as analytics_router
 
 # Re-export routers with their expected names for main.py compatibility
-from . import users, tasks, projects, linkedin, jobs, webhooks, issues, commits
+from . import users, tasks, projects, linkedin, jobs, webhooks, issues, commits, analytics
 
 __all__ = [
     "users",
@@ -26,6 +27,7 @@ __all__ = [
     "webhooks",
     "issues",
     "commits",
+    "analytics",
     "users_router",
     "tasks_router",
     "projects_router",
@@ -34,4 +36,5 @@ __all__ = [
     "webhooks_router",
     "issues_router",
     "commits_router",
+    "analytics_router",
 ]
