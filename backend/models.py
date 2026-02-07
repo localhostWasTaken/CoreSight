@@ -212,3 +212,44 @@ class Commit(BaseModelId):
     triggered_profile_update: bool = False
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# --- 5. JOB REQUISITION (for LinkedIn posting) ---
+
+class JobPostingStatus(str, Enum):
+    PENDING = "pending"           # User needs to fill search fields
+    READY_TO_POST = "ready"       # All fields filled, ready for posting
+    POSTED = "posted"             # Posted to LinkedIn
+    CLOSED = "closed"             # Job closed
+
+
+class JobRequisition(BaseModelId):
+    """
+    Pending job posting created when no matching users found.
+    User must fill LinkedIn-specific fields via search API before posting.
+    """
+    task_id: Optional[PyObjectId] = None      # Related task that triggered this
+    
+    # Core job info (from LLM analysis)
+    suggested_title: str                       # LLM-suggested job title
+    description: str                           # LLM-generated description (HTML)
+    required_skills: List[str]
+    
+    # User-selected from search APIs (initially None)
+    linkedin_job_title_id: Optional[str] = None
+    linkedin_job_title_text: Optional[str] = None
+    linkedin_location_id: Optional[str] = None
+    linkedin_location_text: Optional[str] = None
+    
+    # Job configuration
+    workplace_type: str = "ON_SITE"           # ON_SITE, REMOTE, HYBRID
+    employment_type: str = "FULL_TIME"        # FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
+    
+    # Status tracking
+    status: JobPostingStatus = JobPostingStatus.PENDING
+    linkedin_job_id: Optional[str] = None     # After posting
+    
+    # Audit
+    created_at: datetime
+    updated_at: datetime
+    created_by: Optional[str] = None          # "system" or user ID

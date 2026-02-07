@@ -133,12 +133,19 @@ async def handle_issue_created(webhook_data: Dict[str, Any], db: DatabaseManager
         report = await generate_no_match_report(
             summary, description, required_skills, 0
         )
+        
+        # Create JobRequisition for hiring
+        requisition_id = await create_job_requisition(
+            db, str(task_id), report, required_skills
+        )
+        
         return {
             "status": "no_users_available",
             "task_id": str(task_id),
             "issue_key": issue_key,
             "report": report,
-            "action_required": "create_job_posting"
+            "requisition_id": str(requisition_id),
+            "action_required": "fill_job_requisition"
         }
     
     # Convert MongoDB users to dict format
@@ -162,12 +169,19 @@ async def handle_issue_created(webhook_data: Dict[str, Any], db: DatabaseManager
         report = await generate_no_match_report(
             summary, description, required_skills, len(all_users)
         )
+        
+        # Create JobRequisition for hiring
+        requisition_id = await create_job_requisition(
+            db, str(task_id), report, required_skills
+        )
+        
         return {
             "status": "no_match",
             "task_id": str(task_id),
             "issue_key": issue_key,
             "report": report,
-            "action_required": "create_job_posting"
+            "requisition_id": str(requisition_id),
+            "action_required": "fill_job_requisition"
         }
     
     print(f"Found {len(matching_users)} potential matches:")
@@ -364,23 +378,49 @@ async def get_or_create_sprint(db: DatabaseManager, project_id: str, sprint_info
     return str(sprint_id)
 
 
-async def create_job_posting_placeholder(required_skills: List[str], task_title: str) -> Dict[str, Any]:
+async def create_job_requisition(
+    db: DatabaseManager,
+    task_id: str,
+    report: Dict[str, Any],
+    required_skills: List[str]
+) -> str:
     """
-    Placeholder for job posting creation
+    Create a JobRequisition document when no matching users found.
     
-    TODO: Implement actual job posting logic
-    - Generate job description using LLM
-    - Post to job board API
-    - Create internal requisition
+    Args:
+        db: Database manager
+        task_id: Related task ID
+        report: Report from generate_no_match_report
+        required_skills: List of required skills
+        
+    Returns:
+        Created requisition ID
     """
-    print("\n📢 JOB POSTING REQUIRED")
-    print(f"Required Skills: {', '.join(required_skills)}")
-    print(f"Task: {task_title}")
-    print("⚠️  Job posting feature not yet implemented")
+    print("\n📢 CREATING JOB REQUISITION")
+    print(f"   Suggested Title: {report.get('suggested_job_title')}")
+    print(f"   Required Skills: {', '.join(required_skills)}")
     
-    return {
-        "status": "placeholder",
+    requisition_doc = {
+        "task_id": task_id,
+        "suggested_title": report.get("suggested_job_title", f"Developer - {required_skills[0]}"),
+        "description": report.get("suggested_job_description", ""),
         "required_skills": required_skills,
-        "task_title": task_title,
-        "message": "Job posting feature coming soon"
+        "linkedin_job_title_id": None,
+        "linkedin_job_title_text": None,
+        "linkedin_location_id": None,
+        "linkedin_location_text": None,
+        "workplace_type": "ON_SITE",
+        "employment_type": "FULL_TIME",
+        "status": "pending",
+        "linkedin_job_id": None,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "created_by": "system"
     }
+    
+    requisition_id = await db.insert_one("job_requisitions", requisition_doc)
+    print(f"✅ JobRequisition created: {requisition_id}")
+    print(f"   Next: User must fill LinkedIn fields via /api/jobs/requisitions/{requisition_id}")
+    
+    return requisition_id
+

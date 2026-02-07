@@ -390,6 +390,283 @@ async def list_sprints():
     })
 
 
+# === LINKEDIN INTEGRATION APIs ===
+
+@app.get("/api/linkedin/search")
+async def search_linkedin_parameters(
+    type: str,
+    query: str,
+    limit: int = 10
+):
+    """
+    Search LinkedIn for autocomplete parameters
+    
+    Use this to populate UI dropdowns for:
+    - LOCATION: Geographic locations for job posting
+    - JOB_TITLE: Standard LinkedIn job titles
+    - COMPANY: Companies
+    - INDUSTRY: Industries
+    
+    Query params:
+        type: One of LOCATION, JOB_TITLE, COMPANY, INDUSTRY
+        query: Search string
+        limit: Max results (default 10)
+    """
+    try:
+        from linkedin_service import LinkedinSearchType, get_unipile_client
+        
+        # Validate type
+        try:
+            search_type = LinkedinSearchType(type.upper())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid search type. Must be one of: {[t.value for t in LinkedinSearchType]}"
+            )
+        
+        client = get_unipile_client()
+        result = await client.search_linkedin_parameters(search_type, query, limit)
+        
+        return JSONResponse(content={
+            "type": search_type.value,
+            "query": query,
+            "results": [r.model_dump() for r in result.results],
+            "total_count": result.total_count
+        })
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"LinkedIn search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# === JOB REQUISITION APIs ===
+
+@app.get("/api/jobs/requisitions")
+async def list_job_requisitions(status: str = None):
+    """
+    List all job requisitions.
+    
+    Query params:
+        status: Optional filter by status (pending, ready, posted, closed)
+    """
+    if not db_manager:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    filter_dict = {}
+    if status:
+        filter_dict["status"] = status
+    
+    requisitions = await db_manager.find_many("job_requisitions", filter_dict)
+    
+    return JSONResponse(content={
+        "count": len(requisitions),
+        "requisitions": [
+            {
+                "id": str(r["_id"]),
+                "suggested_title": r.get("suggested_title"),
+                "required_skills": r.get("required_skills", []),
+                "status": r.get("status"),
+                "linkedin_job_title_text": r.get("linkedin_job_title_text"),
+                "linkedin_location_text": r.get("linkedin_location_text"),
+                "workplace_type": r.get("workplace_type"),
+                "employment_type": r.get("employment_type"),
+                "created_at": r.get("created_at").isoformat() if r.get("created_at") else None,
+                "task_id": r.get("task_id"),
+            }
+            for r in requisitions
+        ]
+    })
+
+
+@app.get("/api/jobs/requisitions/{requisition_id}")
+async def get_job_requisition(requisition_id: str):
+    """Get a specific job requisition by ID"""
+    if not db_manager:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    from bson import ObjectId
+    
+    try:
+        requisition = await db_manager.find_one(
+            "job_requisitions",
+            {"_id": ObjectId(requisition_id)}
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid requisition ID")
+    
+    if not requisition:
+        raise HTTPException(status_code=404, detail="Requisition not found")
+    
+    return JSONResponse(content={
+        "id": str(requisition["_id"]),
+        "task_id": requisition.get("task_id"),
+        "suggested_title": requisition.get("suggested_title"),
+        "description": requisition.get("description"),
+        "required_skills": requisition.get("required_skills", []),
+        "linkedin_job_title_id": requisition.get("linkedin_job_title_id"),
+        "linkedin_job_title_text": requisition.get("linkedin_job_title_text"),
+        "linkedin_location_id": requisition.get("linkedin_location_id"),
+        "linkedin_location_text": requisition.get("linkedin_location_text"),
+        "workplace_type": requisition.get("workplace_type"),
+        "employment_type": requisition.get("employment_type"),
+        "status": requisition.get("status"),
+        "linkedin_job_id": requisition.get("linkedin_job_id"),
+        "created_at": requisition.get("created_at").isoformat() if requisition.get("created_at") else None,
+        "updated_at": requisition.get("updated_at").isoformat() if requisition.get("updated_at") else None,
+    })
+
+
+@app.patch("/api/jobs/requisitions/{requisition_id}")
+async def update_job_requisition(requisition_id: str, request: Request):
+    """
+    Update a job requisition with LinkedIn search values.
+    
+    Body (all optional):
+    {
+        "linkedin_job_title_id": "from search API",
+        "linkedin_job_title_text": "Software Engineer",
+        "linkedin_location_id": "from search API",
+        "linkedin_location_text": "San Francisco, CA",
+        "workplace_type": "ON_SITE" | "REMOTE" | "HYBRID",
+        "employment_type": "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP"
+    }
+    """
+    if not db_manager:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    from bson import ObjectId
+    from datetime import datetime
+    
+    try:
+        requisition = await db_manager.find_one(
+            "job_requisitions",
+            {"_id": ObjectId(requisition_id)}
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid requisition ID")
+    
+    if not requisition:
+        raise HTTPException(status_code=404, detail="Requisition not found")
+    
+    if requisition.get("status") == "posted":
+        raise HTTPException(status_code=400, detail="Cannot update a posted job requisition")
+    
+    data = await request.json()
+    
+    # Build update dict with allowed fields
+    allowed_fields = [
+        "linkedin_job_title_id", "linkedin_job_title_text",
+        "linkedin_location_id", "linkedin_location_text",
+        "workplace_type", "employment_type"
+    ]
+    
+    update_dict = {k: v for k, v in data.items() if k in allowed_fields}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    # Check if ready to post (all required fields filled)
+    updated_req = {**requisition, **update_dict}
+    if (updated_req.get("linkedin_job_title_id") and 
+        updated_req.get("linkedin_location_id")):
+        update_dict["status"] = "ready"
+    
+    await db_manager.update_one(
+        "job_requisitions",
+        {"_id": ObjectId(requisition_id)},
+        update_dict
+    )
+    
+    return JSONResponse(content={
+        "message": "Requisition updated successfully",
+        "requisition_id": requisition_id,
+        "status": update_dict.get("status", requisition.get("status"))
+    })
+
+
+@app.post("/api/jobs/requisitions/{requisition_id}/post")
+async def post_job_to_linkedin(requisition_id: str):
+    """
+    Post a job requisition to LinkedIn via Unipile.
+    
+    Requisition must be in "ready" status with all LinkedIn fields filled.
+    """
+    if not db_manager:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    from bson import ObjectId
+    from datetime import datetime
+    from linkedin_service import get_unipile_client, WorkplaceType, EmploymentType
+    
+    try:
+        requisition = await db_manager.find_one(
+            "job_requisitions",
+            {"_id": ObjectId(requisition_id)}
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid requisition ID")
+    
+    if not requisition:
+        raise HTTPException(status_code=404, detail="Requisition not found")
+    
+    if requisition.get("status") == "posted":
+        raise HTTPException(status_code=400, detail="Job already posted")
+    
+    # Validate required fields
+    if not requisition.get("linkedin_job_title_id"):
+        raise HTTPException(
+            status_code=400,
+            detail="Missing linkedin_job_title_id. Use /api/linkedin/search?type=JOB_TITLE to find one."
+        )
+    
+    if not requisition.get("linkedin_location_id"):
+        raise HTTPException(
+            status_code=400,
+            detail="Missing linkedin_location_id. Use /api/linkedin/search?type=LOCATION to find one."
+        )
+    
+    try:
+        client = get_unipile_client()
+        
+        # Map workplace and employment types
+        workplace = WorkplaceType(requisition.get("workplace_type", "ON_SITE"))
+        employment = EmploymentType(requisition.get("employment_type", "FULL_TIME"))
+        
+        # Create job posting
+        result = await client.create_job_posting(
+            job_title_id=requisition["linkedin_job_title_id"],
+            location_id=requisition["linkedin_location_id"],
+            description=requisition.get("description", ""),
+            workplace_type=workplace,
+            employment_type=employment
+        )
+        
+        # Update requisition with job ID and posted status
+        await db_manager.update_one(
+            "job_requisitions",
+            {"_id": ObjectId(requisition_id)},
+            {
+                "status": "posted",
+                "linkedin_job_id": result.job_id,
+                "updated_at": datetime.utcnow()
+            }
+        )
+        
+        return JSONResponse(content={
+            "message": "Job posted to LinkedIn successfully",
+            "requisition_id": requisition_id,
+            "linkedin_job_id": result.job_id,
+            "status": "posted"
+        })
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error posting job to LinkedIn: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 # === AI-POWERED ISSUE AND COMMIT ENDPOINTS ===
 
 @app.post("/api/issues")
