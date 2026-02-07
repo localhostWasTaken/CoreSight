@@ -7,7 +7,7 @@ Handles task-related business logic including retrieval and updates.
 from typing import Dict, List, Optional, Any
 from bson import ObjectId
 
-from database import DatabaseManager
+from utils.database import DatabaseManager
 
 
 class TaskService:

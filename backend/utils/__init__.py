@@ -14,7 +14,7 @@ from .utils import (
     error_response,
 )
 
-from .vector_search import (
+from ai.vector_search import (
     search_similar_issues,
     search_similar_tasks_for_commit,
     find_user_by_email,

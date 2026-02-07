@@ -7,7 +7,7 @@ Common utility functions and dependencies used across the application.
 from typing import Optional
 from functools import lru_cache
 
-from database import DatabaseManager
+from .database import DatabaseManager
 
 
 # Global database manager reference (set by main.py lifespan)

@@ -1,0 +1,16 @@
+# Core Framework
+pydantic
+fastapi
+uvicorn[standard]
+
+# Database
+pymongo
+motor
+
+# AI/ML
+openai
+numpy
+
+# Utilities
+python-dotenv
+httpx

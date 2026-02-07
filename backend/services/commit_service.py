@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from bson import ObjectId
 
-from database import DatabaseManager
+from utils.database import DatabaseManager
 from ai import (
     generate_embedding,
     extract_skills_from_commit_diff,

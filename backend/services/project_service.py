@@ -7,7 +7,7 @@ Handles project-related business logic including CRUD operations.
 from typing import Dict, List, Optional, Any
 from bson import ObjectId
 
-from database import DatabaseManager
+from utils.database import DatabaseManager
 
 
 class ProjectService:

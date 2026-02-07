@@ -11,7 +11,7 @@ This script helps you:
 import asyncio
 import json
 from motor.motor_asyncio import AsyncIOMotorClient
-from database import DatabaseManager
+from utils.database import DatabaseManager
 from ai import generate_embedding
 import os
 from dotenv import load_dotenv
