@@ -1,2 +1,47 @@
 .env
 venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*\__pycache__
+# VS Code
+.vscode/
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Test & coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Logs
+*.log
+logs/
+webhook_logs/
+
+# Jupyter
+*.ipynb_checkpoints
+
+# Database dumps/backups
+*.sqlite3
+*.db
+dump.rdb
+
+# FastAPI/Starlette
+instance/
+staticfiles/
+media/
+
+# Misc
+*.swp
+*.swo
+*.bak
+*.tmp
+*.orig

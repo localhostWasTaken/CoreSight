@@ -141,3 +141,74 @@ class ActivityLog(BaseModelId):
     
     # Metadata for raw webhook JSON (e.g., { "pr_link": "...", "reviewer": "Bob" })
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class Issue(BaseModelId):
+    """
+    Issue/Task representation with embeddings for similarity search
+    """
+    title: str
+    description: str
+    description_embedding: List[float] = Field(default_factory=list)
+    
+    # If this is identified as duplicate
+    parent_task_id: Optional[PyObjectId] = None
+    is_duplicate: bool = False
+    
+    # Extracted metadata
+    required_skills: List[str] = Field(default_factory=list)
+    skill_embeddings: List[float] = Field(default_factory=list)
+    priority: str = "medium"
+    
+    # Assignment info
+    assigned_user_id: Optional[PyObjectId] = None
+    assignment_status: str = "pending"  # pending, assigned, posting_required
+    
+    # Activity tracking
+    activity_log: List[str] = Field(default_factory=list)
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Source info
+    source: str = "api"  # api, jira, github, etc
+    external_id: Optional[str] = None
+    project_id: Optional[PyObjectId] = None
+
+
+class Commit(BaseModelId):
+    """
+    Git commit with analysis and skill extraction
+    """
+    commit_hash: str
+    commit_message: str
+    diff_content: str  # The actual diff
+    
+    # LLM Analysis
+    summary: str  # Problem solved or feature built
+    extracted_skills: List[str] = Field(default_factory=list)
+    summary_embedding: List[float] = Field(default_factory=list)
+    
+    # Task linking
+    linked_task_id: Optional[PyObjectId] = None
+    is_jira_tracked: bool = False
+    
+    # Author info
+    author_email: str
+    author_name: str
+    user_id: Optional[PyObjectId] = None  # Linked to our User model
+    
+    # Metadata
+    repository: str
+    branch: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Impact metrics
+    files_changed: int = 0
+    lines_added: int = 0
+    lines_deleted: int = 0
+    
+    # Profile evolution tracking
+    triggered_profile_update: bool = False
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)

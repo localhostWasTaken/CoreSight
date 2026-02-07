@@ -8,12 +8,14 @@ Hackathon: DataZen - Somaiya Vidyavihar University
 
 import os
 import json
+from typing import List, Dict
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
 from database import DatabaseManager
 from jira_handlers import handle_issue_created, handle_sprint_created, handle_sprint_started
 
@@ -387,10 +389,550 @@ async def list_sprints():
         ]
     })
 
+
+# === AI-POWERED ISSUE AND COMMIT ENDPOINTS ===
+
+@app.post("/api/issues")
+async def create_issue_with_ai(request: Request):
+    """
+    POST /issues - AI-Powered Issue Processing
+    
+    Handles intelligent issue creation with:
+    - Duplicate detection via vector similarity
+    - LLM-powered reasoning for existing vs new issues
+    - Automatic skill extraction and developer matching
+    - Job posting trigger for unmatched skills
+    
+    Body:
+    {
+        "title": "Issue title",
+        "description": "Detailed issue description",
+        "priority": "high|medium|low",
+        "project_id": "optional_project_id",
+        "source": "api|jira|github",
+        "external_id": "optional_external_reference"
+    }
+    """
+    if not db_manager:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    try:
+        from ai_utils import (
+            generate_embedding,
+            extract_skills_from_task,
+            check_issue_duplicate_with_llm
+        )
+        from vector_search import (
+            search_similar_issues,
+            find_matching_users_by_skills,
+            create_issue_document,
+            update_issue
+        )
+        from datetime import datetime
+        
+        data = await request.json()
+        
+        title = data.get("title", "").strip()
+        description = data.get("description", "").strip()
+        
+        if not title or not description:
+            raise HTTPException(
+                status_code=400,
+                detail="Title and description are required"
+            )
+        
+        print(f"\n{'='*60}")
+        print(f"📥 Processing New Issue: {title}")
+        print(f"{'='*60}")
+        
+        # Step 1: Generate embedding for the issue
+        print("🔄 Step 1: Generating embeddings...")
+        combined_text = f"{title} {description}"
+        issue_embedding = generate_embedding(combined_text)
+        
+        # Step 2: Search for similar existing issues
+        print("🔍 Step 2: Searching for similar issues...")
+        similar_issues = await search_similar_issues(
+            db_manager,
+            issue_embedding,
+            top_k=5,
+            min_similarity=0.7
+        )
+        
+        print(f"   Found {len(similar_issues)} similar issues")
+        
+        # Step 3: Use LLM to determine if duplicate
+        print("🤖 Step 3: LLM analysis for duplicate detection...")
+        llm_analysis = await check_issue_duplicate_with_llm(
+            title,
+            description,
+            similar_issues
+        )
+        
+        print(f"   Is Duplicate: {llm_analysis['is_duplicate']}")
+        print(f"   Confidence: {llm_analysis['confidence']:.2%}")
+        print(f"   Reasoning: {llm_analysis['reasoning']}")
+        
+        response_data = {
+            "analysis": llm_analysis,
+            "similar_issues_found": len(similar_issues)
+        }
+        
+        # Scenario A: Duplicate/Existing Issue
+        if llm_analysis["is_duplicate"] and llm_analysis["parent_task_id"]:
+            print("📌 Scenario A: Duplicate Issue Detected")
+            
+            parent_task_id = llm_analysis["parent_task_id"]
+            
+            # Update activity log
+            activity_entry = f"[{datetime.utcnow().isoformat()}] Related issue reported: {title}"
+            
+            update_data = {
+                "updated_at": datetime.utcnow()
+            }
+            
+            # Check if priority changed
+            if llm_analysis.get("priority_change"):
+                new_priority = data.get("priority", "medium")
+                update_data["priority"] = new_priority
+                activity_entry += f" | Priority updated to: {new_priority}"
+                print(f"   ⚠️  Priority changed: {llm_analysis['priority_change']}")
+            
+            # Check if new skills required
+            if llm_analysis.get("new_skills_required"):
+                new_skills = llm_analysis["new_skills_required"]
+                print(f"   🎯 New skills required: {new_skills}")
+                
+                # Generate new skill embedding
+                skills_text = ", ".join(new_skills)
+                new_skill_embedding = generate_embedding(skills_text)
+                update_data["required_skills"] = new_skills
+                update_data["skill_embeddings"] = new_skill_embedding
+                
+                # Re-embed description if needed
+                update_data["description_embedding"] = issue_embedding
+                
+                activity_entry += f" | New skills added: {', '.join(new_skills)}"
+            
+            # Update the parent issue
+            await db_manager.update_one_raw(
+                "issues",
+                {"_id": ObjectId(parent_task_id)},
+                {
+                    "$set": update_data,
+                    "$push": {"activity_log": activity_entry}
+                }
+            )
+            
+            response_data["action"] = "updated_existing"
+            response_data["parent_task_id"] = parent_task_id
+            response_data["message"] = "Duplicate issue - parent task updated"
+            
+            print(f"✅ Parent task {parent_task_id} updated")
+        
+        # Scenario B: New Issue
+        else:
+            print("🆕 Scenario B: New Issue")
+            
+            # Extract required skills
+            print("🎯 Step 4: Extracting required skills...")
+            required_skills = extract_skills_from_task(
+                title,
+                description,
+                "Project"
+            )
+            print(f"   Skills: {required_skills}")
+            
+            # Generate skill embeddings
+            skills_text = ", ".join(required_skills)
+            skill_embedding = generate_embedding(skills_text)
+            
+            # Create new issue document
+            issue_doc = {
+                "title": title,
+                "description": description,
+                "description_embedding": issue_embedding,
+                "required_skills": required_skills,
+                "skill_embeddings": skill_embedding,
+                "priority": data.get("priority", "medium"),
+                "is_duplicate": False,
+                "parent_task_id": None,
+                "assigned_user_id": None,
+                "assignment_status": "pending",
+                "activity_log": [f"[{datetime.utcnow().isoformat()}] Issue created"],
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+                "source": data.get("source", "api"),
+                "external_id": data.get("external_id"),
+                "project_id": data.get("project_id")
+            }
+            
+            issue_id = await create_issue_document(db_manager, issue_doc)
+            
+            print(f"✅ Issue created: {issue_id}")
+            
+            # Step 5: Match skills against developers
+            print("👥 Step 5: Matching with developers...")
+            matching_users = await find_matching_users_by_skills(
+                db_manager,
+                required_skills,
+                skill_embedding,
+                top_k=5,
+                min_similarity=0.5
+            )
+            
+            print(f"   Found {len(matching_users)} matching developers")
+            
+            # Assign or trigger job posting
+            if matching_users and len(matching_users) > 0:
+                best_match = matching_users[0]
+                user_id = str(best_match["_id"])
+                match_score = best_match["match_score"]
+                
+                print(f"   ✅ Best match: {best_match['name']} (score: {match_score:.2%})")
+                
+                # Assign the task
+                await update_issue(
+                    db_manager,
+                    issue_id,
+                    {
+                        "assigned_user_id": user_id,
+                        "assignment_status": "assigned"
+                    }
+                )
+                
+                response_data["action"] = "created_and_assigned"
+                response_data["assigned_to"] = {
+                    "user_id": user_id,
+                    "name": best_match["name"],
+                    "match_score": match_score
+                }
+                response_data["matching_candidates"] = [
+                    {
+                        "user_id": str(u["_id"]),
+                        "name": u["name"],
+                        "match_score": u["match_score"],
+                        "skills": u["skills"]
+                    }
+                    for u in matching_users[:3]
+                ]
+            else:
+                print("   ⚠️  No matching developers found")
+                
+                # Trigger job posting placeholder
+                job_posting_result = trigger_job_posting(
+                    required_skills,
+                    title,
+                    description
+                )
+                
+                await update_issue(
+                    db_manager,
+                    issue_id,
+                    {
+                        "assignment_status": "posting_required"
+                    }
+                )
+                
+                response_data["action"] = "created_requires_posting"
+                response_data["job_posting"] = job_posting_result
+            
+            response_data["issue_id"] = issue_id
+            response_data["required_skills"] = required_skills
+        
+        print(f"{'='*60}\n")
+        
+        return JSONResponse(
+            status_code=201,
+            content=response_data
+        )
+        
+    except Exception as e:
+        print(f"❌ Error processing issue: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/commits")
+async def process_commit_with_ai(request: Request):
+    """
+    POST /commits - AI-Powered Commit Analysis
+    
+    Handles intelligent commit processing with:
+    - LLM-based diff analysis and skill extraction
+    - Task linking via vector similarity search
+    - Developer profile evolution tracking
+    - Automatic profile updates based on new skills
+    
+    Body:
+    {
+        "commit_hash": "abc123",
+        "commit_message": "Implemented user authentication",
+        "diff": "git diff content...",
+        "author_email": "dev@example.com",
+        "author_name": "Developer Name",
+        "repository": "my-repo",
+        "branch": "main",
+        "files_changed": 5,
+        "lines_added": 120,
+        "lines_deleted": 30
+    }
+    """
+    if not db_manager:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    try:
+        from ai_utils import (
+            generate_embedding,
+            extract_skills_from_commit_diff,
+            check_profile_update_needed
+        )
+        from vector_search import (
+            search_similar_tasks_for_commit,
+            find_user_by_email,
+            create_commit_document,
+            update_user_profile
+        )
+        from datetime import datetime
+        
+        data = await request.json()
+        
+        commit_hash = data.get("commit_hash", "").strip()
+        commit_message = data.get("commit_message", "").strip()
+        diff_content = data.get("diff", "").strip()
+        author_email = data.get("author_email", "").strip()
+        
+        if not commit_hash or not author_email:
+            raise HTTPException(
+                status_code=400,
+                detail="commit_hash and author_email are required"
+            )
+        
+        print(f"\n{'='*60}")
+        print(f"📥 Processing Commit: {commit_hash[:8]}")
+        print(f"   Author: {author_email}")
+        print(f"{'='*60}")
+        
+        # Step 1: LLM extracts summary and skills
+        print("🤖 Step 1: Analyzing commit with LLM...")
+        llm_extraction = await extract_skills_from_commit_diff(
+            commit_message,
+            diff_content,
+            data.get("repository", "unknown")
+        )
+        
+        summary = llm_extraction["summary"]
+        extracted_skills = llm_extraction["skills_used"]
+        impact = llm_extraction["impact_assessment"]
+        
+        print(f"   Summary: {summary}")
+        print(f"   Skills: {extracted_skills}")
+        print(f"   Impact: {impact}")
+        
+        # Step 2: Generate embedding for summary
+        print("🔄 Step 2: Generating embeddings...")
+        summary_embedding = generate_embedding(summary)
+        
+        # Step 3: Search for matching tasks
+        print("🔍 Step 3: Searching for related tasks...")
+        matching_tasks = await search_similar_tasks_for_commit(
+            db_manager,
+            summary_embedding,
+            top_k=3,
+            min_similarity=0.6
+        )
+        
+        print(f"   Found {len(matching_tasks)} similar tasks")
+        
+        # Determine task linking
+        linked_task_id = None
+        is_jira_tracked = False
+        
+        if matching_tasks and len(matching_tasks) > 0:
+            best_match = matching_tasks[0]
+            similarity = best_match.get("similarity_score", 0)
+            
+            # Link if similarity is high enough
+            if similarity >= 0.7:
+                linked_task_id = str(best_match["_id"])
+                is_jira_tracked = True
+                print(f"   ✅ Linked to task: {best_match.get('external_id', linked_task_id)} (similarity: {similarity:.2%})")
+            else:
+                print(f"   ℹ️  Best match similarity too low: {similarity:.2%}")
+        
+        if not is_jira_tracked:
+            print("   📌 Logged as Non-Jira Tracked Activity")
+        
+        # Step 4: Find user and check profile evolution
+        print("👤 Step 4: Checking user profile...")
+        user = await find_user_by_email(db_manager, author_email)
+        
+        profile_update_result = None
+        triggered_profile_update = False
+        
+        if user:
+            user_id = str(user["_id"])
+            user_name = user.get("name", "Unknown")
+            current_skills = user.get("skills", [])
+            current_profile = user.get("profile_text", "")
+            
+            print(f"   Found user: {user_name}")
+            print(f"   Current skills: {current_skills}")
+            
+            # Check if profile needs updating
+            print("🔄 Step 5: Checking if profile update needed...")
+            profile_analysis = await check_profile_update_needed(
+                current_profile,
+                current_skills,
+                extracted_skills,
+                summary
+            )
+            
+            print(f"   Needs Update: {profile_analysis['needs_update']}")
+            print(f"   Reasoning: {profile_analysis['reasoning']}")
+            
+            if profile_analysis["needs_update"]:
+                new_skills_to_add = profile_analysis.get("new_skills_to_add", [])
+                updated_profile_text = profile_analysis.get("updated_profile_text")
+                
+                # Merge skills (avoid duplicates)
+                updated_skills = list(set(current_skills + new_skills_to_add))
+                
+                # Generate new profile embedding
+                skills_text = ", ".join(updated_skills)
+                new_profile_embedding = generate_embedding(skills_text)
+                
+                # Update user profile
+                success = await update_user_profile(
+                    db_manager,
+                    user_id,
+                    updated_skills,
+                    new_profile_embedding,
+                    updated_profile_text
+                )
+                
+                if success:
+                    triggered_profile_update = True
+                    print(f"   ✅ Profile updated with new skills: {new_skills_to_add}")
+                    
+                    profile_update_result = {
+                        "updated": True,
+                        "new_skills_added": new_skills_to_add,
+                        "total_skills": len(updated_skills)
+                    }
+                else:
+                    print("   ⚠️  Profile update failed")
+            else:
+                print("   ℹ️  No profile update needed")
+                profile_update_result = {
+                    "updated": False,
+                    "reasoning": profile_analysis["reasoning"]
+                }
+        else:
+            user_id = None
+            print(f"   ⚠️  User not found for email: {author_email}")
+        
+        # Step 6: Create commit document
+        print("💾 Step 6: Saving commit record...")
+        commit_doc = {
+            "commit_hash": commit_hash,
+            "commit_message": commit_message,
+            "diff_content": diff_content,
+            "summary": summary,
+            "extracted_skills": extracted_skills,
+            "summary_embedding": summary_embedding,
+            "linked_task_id": linked_task_id,
+            "is_jira_tracked": is_jira_tracked,
+            "author_email": author_email,
+            "author_name": data.get("author_name", ""),
+            "user_id": user_id,
+            "repository": data.get("repository", ""),
+            "branch": data.get("branch", ""),
+            "timestamp": datetime.utcnow(),
+            "files_changed": data.get("files_changed", 0),
+            "lines_added": data.get("lines_added", 0),
+            "lines_deleted": data.get("lines_deleted", 0),
+            "triggered_profile_update": triggered_profile_update,
+            "created_at": datetime.utcnow()
+        }
+        
+        commit_id = await create_commit_document(db_manager, commit_doc)
+        
+        print(f"✅ Commit record created: {commit_id}")
+        print(f"{'='*60}\n")
+        
+        # Build response
+        response_data = {
+            "commit_id": commit_id,
+            "commit_hash": commit_hash,
+            "analysis": {
+                "summary": summary,
+                "skills_extracted": extracted_skills,
+                "impact_assessment": impact
+            },
+            "task_linking": {
+                "linked_task_id": linked_task_id,
+                "is_jira_tracked": is_jira_tracked,
+                "matching_tasks_found": len(matching_tasks)
+            },
+            "profile_evolution": profile_update_result
+        }
+        
+        if matching_tasks:
+            response_data["task_linking"]["similar_tasks"] = [
+                {
+                    "task_id": str(t["_id"]),
+                    "external_id": t.get("external_id"),
+                    "title": t.get("title"),
+                    "similarity_score": t.get("similarity_score", 0)
+                }
+                for t in matching_tasks[:3]
+            ]
+        
+        return JSONResponse(
+            status_code=201,
+            content=response_data
+        )
+        
+    except Exception as e:
+        print(f"❌ Error processing commit: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def trigger_job_posting(required_skills: List[str], title: str, description: str) -> Dict:
+    """
+    Placeholder function for triggering job posting
+    
+    In production, this would:
+    - Create a job posting in an ATS system
+    - Post to job boards
+    - Trigger recruiter notifications
+    - etc.
+    """
+    print(f"\n🚨 JOB POSTING TRIGGERED 🚨")
+    print(f"   Position: {title}")
+    print(f"   Required Skills: {', '.join(required_skills)}")
+    print(f"   Description: {description[:100]}...")
+    
+    return {
+        "triggered": True,
+        "job_title": title,
+        "required_skills": required_skills,
+        "status": "pending_recruiter_review",
+        "message": "Job posting will be created by recruiter"
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.getenv("API_PORT", "8000"))
     uvicorn.run(
         "main:app",
-        port=8080,
+        host="0.0.0.0",
+        port=port,
         reload=True
     )
+
