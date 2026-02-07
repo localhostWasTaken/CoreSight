@@ -12,7 +12,7 @@ import asyncio
 import json
 from motor.motor_asyncio import AsyncIOMotorClient
 from database import DatabaseManager
-from ai_utils import generate_embedding
+from ai import generate_embedding
 import os
 from dotenv import load_dotenv
 
@@ -108,7 +108,7 @@ async def create_sample_users(db: DatabaseManager):
 async def test_webhook_processing(db: DatabaseManager):
     """Test the webhook processing with a sample payload"""
     
-    from jira_handlers import handle_issue_created
+    from services.jira_handlers import handle_issue_created
     
     print("\n" + "="*60)
     print("🧪 Testing Webhook Processing")

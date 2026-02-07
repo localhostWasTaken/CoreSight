@@ -5,9 +5,9 @@ Processes Jira webhooks and performs intelligent task assignment
 
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from database import DatabaseManager
-from models import Task, TaskType, TaskStatus, Sprint, User, WorkSession
-from ai_utils import (
+from utils.database import DatabaseManager
+from entities import Task, TaskType, TaskStatus, Sprint, User, WorkSession
+from ai import (
     extract_skills_from_task,
     generate_embedding,
     find_best_matching_users,
