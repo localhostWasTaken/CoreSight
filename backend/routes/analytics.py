@@ -212,6 +212,72 @@ async def get_team_focus_health(
         )
 
 
+@router.get(
+    "/risks/burnout",
+    response_model=dict,
+    summary="Get Burnout Risks (Project Span & Overload)",
+    description="Identify developers working on too many projects or tasks simultaneously."
+)
+async def get_burnout_risks():
+    """Get list of users at risk of burnout."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_burnout_risks()
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to analyze burnout risks: {str(e)}"
+        )
+
+
+@router.get(
+    "/business/recommendations",
+    response_model=dict,
+    summary="Get Strategic Business Recommendations",
+    description="Get prescriptive insights on budget risks, stalled projects, and bottlenecks."
+)
+async def get_business_recommendations():
+    """Get actionable business recommendations."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_business_recommendations()
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get recommendations: {str(e)}"
+        )
+
+
+@router.get(
+    "/user/{user_id}/value",
+    response_model=dict,
+    summary="Get Developer Value & Cost Analysis",
+    description="Calculate ROI based on hourly rate and LLM-analyzed commit value."
+)
+async def get_developer_value(user_id: str, days: int = 30):
+    """Get developer cost vs value metrics."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_developer_value_analysis(user_id, days)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        return {"success": True, "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to analyze developer value: {str(e)}"
+        )
+
+
 # ============================================================================
 # ADDITIONAL UTILITY ENDPOINTS
 # ============================================================================

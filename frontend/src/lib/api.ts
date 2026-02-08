@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -60,6 +60,12 @@ export const analyticsAPI = {
     api.get('/api/analytics/commits/activity', { params: { days, user_id: userId } }),
   workTypes: () => 
     api.get('/api/analytics/work-types'),
+  burnoutRisks: () => 
+    api.get('/api/analytics/risks/burnout'),
+  businessRecommendations: () => 
+    api.get('/api/analytics/business/recommendations'),
+  developerValue: (userId: string, days: number = 30) => 
+    api.get(`/api/analytics/user/${userId}/value`, { params: { days } }),
 };
 
 export const commitAPI = {

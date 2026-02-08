@@ -213,3 +213,61 @@ Return ONLY a valid JSON object:
         "new_skills_to_add": new_skills,
         "updated_profile_text": None
     }
+
+
+async def analyze_commit_value(
+    commit_message: str,
+    diff_content: str
+) -> Dict[str, any]:
+    """
+    Analyze the business value and complexity of a commit using LLM.
+    """
+    # Truncate for token limits
+    diff_preview = diff_content[:3000] + "..." if len(diff_content) > 3000 else diff_content
+    
+    prompt = f"""You are a CTO evaluating the business value of a code change.
+    
+Commit Message: {commit_message}
+
+Code Changes:
+{diff_preview}
+
+Evaluate this work on two dimensions:
+1. Technical Complexity (Low/Medium/High)
+2. Business Value Score (0-100) - Consider:
+   - Does it fix a critical bug? (High Value)
+   - Does it add a new feature? (High Value)
+   - Is it just whitespace/formatting? (Low Value)
+   - Is it a refactor? (Medium Value)
+
+Return ONLY a valid JSON object:
+{{
+    "complexity": "low" | "medium" | "high",
+    "value_score": 85.5,
+    "reasoning": "Brief explanation of the score"
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+        )
+        
+        content = response.choices[0].message.content.strip()
+        
+        start = content.find('{')
+        end = content.rfind('}') + 1
+        
+        if start != -1 and end != 0:
+            json_str = content[start:end]
+            return json.loads(json_str)
+            
+    except Exception as e:
+        print(f"Error analyzing commit value: {e}")
+        
+    return {
+        "complexity": "low",
+        "value_score": 10.0,
+        "reasoning": "Analysis failed, defaulting to base score."
+    }

@@ -57,6 +57,14 @@ class TaskService:
     
     async def update_task(self, task_id: str, update_data: Dict[str, Any]) -> bool:
         """Update a task"""
+        # Auto-move to in_progress if assigning user and currently todo
+        if "current_assignee_ids" in update_data and update_data["current_assignee_ids"]:
+            current_task = await self.get_task(task_id)
+            if current_task and current_task.get("status") == "todo":
+                # Only update status if not explicitly setting it to something else
+                if "status" not in update_data:
+                    update_data["status"] = "in_progress"
+
         return await self.db.update_one(
             "tasks",
             {"_id": ObjectId(task_id)},

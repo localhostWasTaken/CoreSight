@@ -67,41 +67,42 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [usersRes, tasksRes, projectsRes, jobsRes, commitsRes, contributorsRes] = await Promise.all([
+      // Use Promise.allSettled so one failure doesn't block everything
+      const [usersRes, tasksRes, projectsRes, jobsRes, commitsRes, contributorsRes] = await Promise.allSettled([
         userAPI.list(),
         taskAPI.list(),
         projectAPI.list(),
         jobAPI.list({ status: 'pending' }),
         commitAPI.list({ limit: 5 }),
-        analyticsAPI.topContributors({ limit: 3 }) // Assuming this endpoint exists or we mock it
+        analyticsAPI.topContributors({ limit: 3 })
       ]);
 
       setStats({
-        totalUsers: usersRes.data.length,
-        activeTasks: tasksRes.data.filter((t: any) => t.status !== 'done').length,
-        projects: projectsRes.data.length,
-        pendingJobs: jobsRes.data.length,
+        totalUsers: usersRes.status === 'fulfilled' ? usersRes.value.data.length : 0,
+        activeTasks: tasksRes.status === 'fulfilled' ? tasksRes.value.data.filter((t: any) => t.status !== 'done').length : 0,
+        projects: projectsRes.status === 'fulfilled' ? projectsRes.value.data.length : 0,
+        pendingJobs: jobsRes.status === 'fulfilled' ? jobsRes.value.data.length : 0,
         loading: false,
       });
 
-      setPendingJobs(jobsRes.data.slice(0, 3));
+      if (jobsRes.status === 'fulfilled') {
+        setPendingJobs(jobsRes.value.data.slice(0, 3));
+      }
 
       // Process recent activity from commits
-      const activities: ActivityItem[] = commitsRes.data.slice(0, 5).map((commit: any) => ({
-        id: commit._id || commit.id,
-        type: 'commit',
-        title: commit.message || commit.commit_message || 'Commit',
-        subtitle: `${commit.author_name} • ${commit.repository || 'Repo'}`,
-        date: commit.committed_at || commit.created_at,
-        icon: GitCommit,
-        color: 'text-[rgb(var(--color-accent))]',
-      }));
-      setRecentActivity(activities);
-      
-      // If we had a real top contributors endpoint:
-      // setTopContributors(contributorsRes.data);
-      // For now, let's mock it based on usersRes.data to show UI
-      // In reality, we should implement analyticsAPI.topContributors backend logic
+      if (commitsRes.status === 'fulfilled') {
+        const commitsData = Array.isArray(commitsRes.value.data) ? commitsRes.value.data : [];
+        const activities: ActivityItem[] = commitsData.slice(0, 5).map((commit: any, index: number) => ({
+          id: commit._id || commit.id || `commit-${index}-${Date.now()}`,
+          type: 'commit',
+          title: commit.message || commit.commit_message || 'Commit',
+          subtitle: `${commit.author_name || 'Unknown'} • ${commit.repository || 'Repo'}`,
+          date: commit.committed_at || commit.created_at,
+          icon: GitCommit,
+          color: 'text-[rgb(var(--color-accent))]',
+        }));
+        setRecentActivity(activities);
+      }
       
      } catch (error) {
       console.error('Failed to load dashboard data:', error);

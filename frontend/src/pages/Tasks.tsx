@@ -127,7 +127,7 @@ export default function Tasks() {
               className={`btn ${filter === key ? 'btn-primary' : 'btn-secondary'} whitespace-nowrap`}
             >
               {label}
-              <span className="ml-2 px-2 py-0.5 bg-black/10 rounded text-xs">
+              <span className="ml-2 px-2 py-0.5 bg-[rgba(var(--color-text-primary),0.1)] rounded text-xs">
                 {statusCounts[key as keyof typeof statusCounts]}
               </span>
             </button>

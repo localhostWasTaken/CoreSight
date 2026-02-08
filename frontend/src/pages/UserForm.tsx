@@ -115,7 +115,7 @@ export default function UserForm() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700">
+          <div className="mb-6 p-4 bg-[rgba(205,100,100,0.1)] border border-[rgba(205,100,100,0.3)] text-[rgb(var(--color-error))] rounded-sm">
             {error}
           </div>
         )}

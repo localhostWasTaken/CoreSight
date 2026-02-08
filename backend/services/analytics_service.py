@@ -745,3 +745,200 @@ class AnalyticsService:
             })
             
         return contributors
+
+    # ============================================================================
+    # STRATEGIC INSIGHTS: BURNOUT & BUSINESS RECOMMENDATIONS
+    # ============================================================================
+
+    async def get_burnout_risks(self) -> Dict[str, Any]:
+        """
+        Identify developers at risk of burnout based on project span and task load.
+        Risk Factors:
+        - Working on > 2 active projects simultaneously (Context Switching)
+        - > 5 active assigned tasks (Overload)
+        """
+        # Get active tasks
+        active_tasks = await self.db.find_many("tasks", {"status": {"$ne": "done"}})
+        
+        user_load = {}
+        
+        for task in active_tasks:
+            assignees = task.get("current_assignee_ids", [])
+            project_id = str(task.get("project_id", "unknown"))
+            
+            for uid in assignees:
+                uid = str(uid)
+                if uid not in user_load:
+                    user_load[uid] = {
+                        "tasks": 0,
+                        "projects": set()
+                    }
+                user_load[uid]["tasks"] += 1
+                user_load[uid]["projects"].add(project_id)
+        
+        risks = []
+        
+        for uid, data in user_load.items():
+            project_count = len(data["projects"])
+            task_count = data["tasks"]
+            
+            reasons = []
+            if project_count > 2:
+                reasons.append(f"Spanning {project_count} active projects")
+            if task_count > 5:
+                reasons.append(f"Overloaded with {task_count} active tasks")
+                
+            if reasons:
+                # Fetch user name
+                user = await self.db.find_one("users", {"_id": ObjectId(uid)})
+                name = user.get("name", "Unknown") if user else "Unknown"
+                
+                risks.append({
+                    "user_id": uid,
+                    "name": name,
+                    "project_count": project_count,
+                    "task_count": task_count,
+                    "risk_factors": reasons,
+                    "severity": "high" if len(reasons) > 1 else "medium"
+                })
+        
+        # Sort by severity (high first) then task count
+        risks.sort(key=lambda x: (0 if x["severity"] == "high" else 1, -x["task_count"]))
+        
+        return {
+            "total_at_risk": len(risks),
+            "risks": risks
+        }
+
+    async def get_business_recommendations(self) -> List[Dict[str, Any]]:
+        """
+        Generate prescriptive business recommendations based on project health and resource allocation.
+        """
+        recommendations = []
+        
+        # 1. Budget Risks
+        projects = await self.db.find_many("projects", {})
+        for p in projects:
+            total = p.get("total_budget", 0)
+            spent = p.get("spent_budget", 0)
+            if total > 0 and spent > (total * 0.8):
+                recommendations.append({
+                    "type": "budget_risk",
+                    "severity": "high" if spent > total else "medium",
+                    "title": f"Budget Alert: {p.get('name')}",
+                    "message": f"Project has consumed {int((spent/total)*100)}% of budget.",
+                    "action": "Audit expenses or request budget increase."
+                })
+
+        # 2. Stalled Projects (No recent activity)
+        # We'll use a heuristic: check if any tasks updated recently or commits made
+        # For simplicity/speed in this hackathon context, let's look at project updated_at if available, 
+        # or just random for demo if data is sparse? 
+        # Better: Latest commit for project.
+        
+        # Get latest commit for each project? (Expensive loop, maybe skip or optimize)
+        # Optimization: We already have get_project_analytics which does some of this.
+        # Let's do a simple check on tasks.
+        
+        one_week_ago = datetime.utcnow() - timedelta(days=7)
+        for p in projects:
+            pid = p.get("_id")
+            # fast check: any task updated in last week?
+            recent_task = await self.db.find_one("tasks", {
+                "project_id": pid, 
+                "updated_at": {"$gte": one_week_ago}
+            })
+            
+            if not recent_task:
+                 recommendations.append({
+                    "type": "stalled_project",
+                    "severity": "medium",
+                    "title": f"Stalled: {p.get('name')}",
+                    "message": "No task updates in the last 7 days.",
+                    "action": "Check in with team or re-evaluate priority."
+                })
+        
+        # 3. Resource Bottlenecks (Unassigned High Priority Tasks)
+        unassigned_high_pri = await self.db.find_many("tasks", {
+            "current_assignee_ids": {"$size": 0},
+            "priority": "high",
+            "status": {"$ne": "done"}
+        })
+        
+        if unassigned_high_pri:
+            count = len(unassigned_high_pri)
+            recommendations.append({
+                "type": "bottleneck",
+                "severity": "high",
+                "title": "Resource Bottleneck",
+                "message": f"{count} high-priority tasks are unassigned.",
+                "action": "Assign resources immediately or lower priority."
+            })
+
+        return recommendations
+
+
+    async def get_developer_value_analysis(self, user_id: str, days: int = 30) -> Dict[str, Any]:
+        """
+        Calculate developer ROI: Cost vs. Value
+        """
+        # 1. Get User Rate
+        user = await self.db.find_one("users", {"_id": ObjectId(user_id)})
+        if not user:
+            return None
+            
+        hourly_rate = user.get("hourly_rate", 50.0)
+        
+        # 2. Calculate Cost (Time Spent)
+        # For now, estimate based on commits if WorkSession not fully utilized
+        # Assumption: 1 commit ~ 2 hours (heuristic if no time tracking)
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        
+        commits = await self.db.find_many("commits", {
+            "user_id": ObjectId(user_id),
+            "timestamp": {"$gte": cutoff_date}
+        })
+        
+        # In a real system, we'd query WorkSessions. Here we use a heuristic or actual if available.
+        # Let's try to simulate "Hours" based on activity spread
+        total_hours_estimated = len(commits) * 2.5 # 2.5 hours per commit avg
+        total_cost = total_hours_estimated * hourly_rate
+        
+        # 3. Calculate Value (LLM Scores)
+        total_value_score = 0
+        value_breakdown = []
+        
+        for commit in commits:
+            score = commit.get("value_score", 0)
+            if score == 0:
+                # If not yet scored, we might want to trigger scoring in background?
+                # For now, just count as 0 or default
+                pass
+            
+            total_value_score += score
+            
+            if score > 70: # High value highlights
+                value_breakdown.append({
+                    "hash": commit.get("commit_hash", "")[:7],
+                    "message": commit.get("commit_message", ""),
+                    "score": score,
+                    "complexity": commit.get("complexity", "unknown"),
+                    "reasoning": commit.get("impact_reasoning", "High impact detected")
+                })
+        
+        # 4. ROI Metric
+        # Value Score is abstract points. Cost is $.
+        # We need a baseline. Let's say 1 Value Point is worth $X to the business?
+        # Or just return raw metrics for the UI to display "Cost: $5000, Value Points: 450"
+        
+        return {
+            "user_id": user_id,
+            "period_days": days,
+            "hourly_rate": hourly_rate,
+            "total_cost": round(total_cost, 2),
+            "estimated_hours": total_hours_estimated,
+            "total_value_score": round(total_value_score, 1),
+            "commit_count": len(commits),
+            "roi_ratio": round(total_value_score / (total_cost / 100), 2) if total_cost > 0 else 0, # Points per $100 spent
+            "high_impact_commits": sorted(value_breakdown, key=lambda x: x['score'], reverse=True)[:5]
+        }

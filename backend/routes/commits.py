@@ -59,7 +59,8 @@ async def create_commit(commit: CommitCreate):
 @router.get("", response_model=List[dict])
 async def list_commits(
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    repository: Optional[str] = Query(None, description="Filter by repository")
+    repository: Optional[str] = Query(None, description="Filter by repository"),
+    limit: Optional[int] = Query(None, description="Limit number of results")
 ):
     """
     List all commits with optional filters.
@@ -70,7 +71,12 @@ async def list_commits(
         
         commits = await service.list_commits(user_id, repository)
         # Sort by created_at descending (newest first)
-        commits.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        # Normalize to string for comparison since values may be datetime or str
+        commits.sort(key=lambda x: str(x.get("created_at", "")), reverse=True)
+        
+        # Apply limit if specified
+        if limit and limit > 0:
+            commits = commits[:limit]
         
         # Remove embeddings and diff from response
         result = []

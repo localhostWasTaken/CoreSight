@@ -188,6 +188,11 @@ class Commit(BaseModelId):
     extracted_skills: List[str] = Field(default_factory=list)
     summary_embedding: List[float] = Field(default_factory=list)
     
+    # Value Analysis
+    value_score: float = 0.0  # 0-100 score of business value
+    complexity: str = "low"   # low, medium, high
+    impact_reasoning: Optional[str] = None # Why this score?
+    
     # Task linking
     linked_task_id: Optional[PyObjectId] = None
     is_jira_tracked: bool = False
