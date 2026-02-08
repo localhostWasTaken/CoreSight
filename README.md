@@ -2,34 +2,34 @@
 
 **AI-Driven Enterprise Delivery & Workforce Intelligence System**
 
-> 🏆 Hackathon Project: DataZen - Somaiya Vidyavihar University
+> Hackathon Project: DataZen - Somaiya Vidyavihar University
 
 CoreSight transforms raw engineering activity into **actionable business intelligence**. It leverages AI to analyze commits, match developers to tasks, detect burnout risks, and provide comprehensive workforce analytics.
 
 ---
 
-## 🚀 Features
+## Features
 
-### 🤖 AI-Powered Intelligence
+### AI-Powered Intelligence
 - **Smart Task Matching** - Automatically matches developers to tasks based on skills and work history using vector embeddings
 - **Skill Extraction** - Extracts skills from commit diffs and task descriptions using LLM analysis
 - **Duplicate Detection** - AI-powered issue duplicate checking
 - **Profile Evolution** - Tracks and updates developer skills based on their actual work
 - **Job Requisition Generation** - Automatically generates job postings when no matching internal candidates are found
 
-### 📊 Analytics & Insights
+### Analytics & Insights
 - **Maker vs. Mender Score** - Categorizes developer work (new features vs. refactoring vs. cleanup)
 - **True Task Costing** - Calculates actual task costs by aggregating work sessions
 - **Burnout Detection** - Analyzes context switching patterns to detect burnout risk
 - **Project Budget Tracking** - Tracks time and cost against project budgets
 
-### 🔗 Integrations
+### Integrations
 - **GitHub Webhooks** - Real-time commit and PR tracking
 - **Jira Integration** - Task synchronization and status tracking
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 CoreSight/
@@ -51,7 +51,7 @@ CoreSight/
 
 ---
 
-## 🖥️ Backend
+## Backend
 
 ### Tech Stack
 - **Framework**: FastAPI
@@ -97,7 +97,7 @@ CoreSight/
 
 ---
 
-## 🎨 Frontend
+## Frontend
 
 ### Tech Stack
 - **Framework**: React 19
@@ -168,7 +168,7 @@ npm run dev
 
 ---
 
-## ⚙️ Environment Variables
+## Environment Variables
 
 ### Backend (.env)
 
@@ -189,7 +189,7 @@ npm run dev
 
 ---
 
-## 📡 API Documentation
+## API Documentation
 
 Once running, access the interactive API docs:
 - **Swagger UI**: `http://localhost:8000/docs`
@@ -197,7 +197,7 @@ Once running, access the interactive API docs:
 
 ---
 
-## 🔑 Authentication
+## Authentication
 
 CoreSight uses JWT-based authentication with two user roles:
 
@@ -208,7 +208,7 @@ CoreSight uses JWT-based authentication with two user roles:
 
 ---
 
-## 📈 Key Analytics Features
+## Key Analytics Features
 
 ### Maker vs. Mender Score
 Analyzes commit patterns to categorize work:
@@ -229,7 +229,7 @@ Calculates actual costs by:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -239,7 +239,7 @@ Calculates actual costs by:
 
 ---
 
-## 📄 License
+## License
 
 This project was created for the DataZen Hackathon at Somaiya Vidyavihar University.
 
