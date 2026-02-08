@@ -42,15 +42,17 @@ export default function Tasks() {
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     setUpdatingId(taskId);
     try {
-      // Update locally first for instant feedback
+      // Call backend API to update status
+      await taskAPI.update(taskId, { status: newStatus });
+      
+      // Update locally for instant feedback
       setTasks(tasks.map(t => 
         (t.id === taskId || t._id === taskId) ? { ...t, status: newStatus } : t
       ));
-      // Note: If you have an update endpoint, call it here
-      // await taskAPI.update(taskId, { status: newStatus });
     } catch (err) {
       console.error('Failed to update task:', err);
-      // Revert on error
+      alert('Failed to update task status');
+      // Reload to get correct state
       loadTasks();
     } finally {
       setUpdatingId(null);

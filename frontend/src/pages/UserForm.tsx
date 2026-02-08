@@ -16,7 +16,7 @@ export default function UserForm() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'employee',
+    role: 'employee', // Always employee
     hourly_rate: 50,
     skills: '',
     github_username: '',
@@ -37,14 +37,14 @@ export default function UserForm() {
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        role: user.role || 'employee',
+        role: 'employee', // Force employee role
         hourly_rate: user.hourly_rate || 50,
         skills: (user.skills || []).join(', '),
         github_username: user.github_username || '',
         jira_account_id: user.jira_account_id || '',
       });
     } catch (err) {
-      setError('Failed to load user');
+      setError('Failed to load employee');
       console.error(err);
     } finally {
       setFetching(false);
@@ -59,6 +59,7 @@ export default function UserForm() {
     try {
       const payload = {
         ...formData,
+        role: 'employee', // Ensure role is always employee
         skills: formData.skills.split(',').map(s => s.trim()).filter(Boolean),
         github_username: formData.github_username || undefined,
         jira_account_id: formData.jira_account_id || undefined,
@@ -71,7 +72,7 @@ export default function UserForm() {
       }
       navigate('/users');
     } catch (err: any) {
-      setError(err.response?.data?.detail || `Failed to ${isEditMode ? 'update' : 'create'} user`);
+      setError(err.response?.data?.detail || `Failed to ${isEditMode ? 'update' : 'create'} employee`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -81,9 +82,9 @@ export default function UserForm() {
   if (fetching) {
     return (
       <AdminLayout>
-        <div className="max-w-3xl">
+        <div className="max-w-3xl mx-auto">
           <div className="text-center py-12 text-[rgb(var(--color-text-secondary))]">
-            Loading user...
+            Loading employee...
           </div>
         </div>
       </AdminLayout>
@@ -92,7 +93,7 @@ export default function UserForm() {
 
   return (
     <AdminLayout>
-      <div className="max-w-3xl">
+      <div className="max-w-3xl mx-auto">
         {/* Page Header */}
         <div className="mb-8">
           <button
@@ -100,15 +101,15 @@ export default function UserForm() {
             className="btn btn-ghost mb-4 px-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Users
+            Back to Employees
           </button>
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            {isEditMode ? 'Edit User' : 'Add New User'}
+            {isEditMode ? 'Edit Employee' : 'Add New Employee'}
           </h1>
           <p className="text-[rgb(var(--color-text-secondary))]">
             {isEditMode 
-              ? 'Update team member profile and work information'
-              : 'Create a new team member profile with skills and work information'
+              ? 'Update employee profile and work information'
+              : 'Create a new employee profile with skills and work information'
             }
           </p>
         </div>
@@ -156,26 +157,25 @@ export default function UserForm() {
                 </div>
               </div>
 
-              {/* Role & Rate */}
+              {/* Work Details */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Work Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="role" className="label">
-                      Role *
+                      Role
                     </label>
-                    <select
+                    <input
                       id="role"
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="input"
-                      required
-                    >
-                      <option value="employee">Employee</option>
-                      <option value="contractor">Contractor</option>
-                      <option value="manager">Manager</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                      type="text"
+                      value="Employee"
+                      className="input bg-[rgb(var(--color-surface-secondary))] cursor-not-allowed"
+                      disabled
+                      readOnly
+                    />
+                    <p className="text-xs text-[rgb(var(--color-text-tertiary))] mt-1">
+                      All users are created as employees
+                    </p>
                   </div>
                   <div>
                     <label htmlFor="hourly_rate" className="label">
@@ -262,7 +262,7 @@ export default function UserForm() {
                 disabled={loading}
               >
                 <Save className="w-4 h-4" />
-                {loading ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create User')}
+                {loading ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Employee')}
               </button>
             </div>
           </div>

@@ -100,6 +100,7 @@ class CommitService:
             "user_id": user_id,
             "repository": repository,
             "branch": branch,
+            "project_id": commit_data.get("project_id"),  # Link to project
             "timestamp": now,
             "files_changed": commit_data.get("files_changed", 0),
             "lines_added": commit_data.get("lines_added", 0),

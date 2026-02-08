@@ -148,7 +148,9 @@ async def handle_github_webhook(request: Request):
         if event_type == "push":
             # Extract commits and repository info
             commits = webhook_data.get("commits", [])
-            repository = webhook_data.get("repository", {}).get("name", "unknown")
+            repository_data = webhook_data.get("repository", {})
+            repository_name = repository_data.get("name", "unknown")
+            repository_url = repository_data.get("html_url", "")
             ref = webhook_data.get("ref", "refs/heads/main")
             branch = ref.split("/")[-1] if "/" in ref else ref
             
@@ -158,6 +160,22 @@ async def handle_github_webhook(request: Request):
                     "event_type": event_type,
                     "message": "No commits in push event"
                 }
+            
+            # Auto-create or get project for this repository
+            from services.project_service import ProjectService
+            project_service = ProjectService(db)
+            
+            project = await project_service.get_or_create_project(
+                name=repository_name,
+                repo_url=repository_url
+            )
+            project_id = str(project["_id"])
+            
+            print(f"📦 Project: {repository_name} (ID: {project_id})")
+            
+            # Add user as contributor to this project
+            user_id = str(existing_user["_id"])
+            await project_service.add_contributor(project_id, user_id)
             
             # Aggregate all diffs from commits using ||| delimiter
             all_diffs = []
@@ -182,12 +200,13 @@ async def handle_github_webhook(request: Request):
                 "diff": combined_diff,
                 "author_email": author_email,
                 "author_name": author_name,
-                "repository": repository,
+                "repository": repository_name,
                 "branch": branch,
                 "created_at": commits[-1].get("timestamp"),  # Extract timestamp from last commit
                 "files_changed": sum(1 for c in commits for _ in [c.get("diff")] if c.get("diff")),
                 "lines_added": sum(1 for line in combined_diff.split('\n') if line.startswith('+') and not line.startswith('+++')),
                 "lines_deleted": sum(1 for line in combined_diff.split('\n') if line.startswith('-') and not line.startswith('---')),
+                "project_id": project_id,  # Link to project
             }
             
             # Process through CommitService (handles skill extraction, profile update)
@@ -197,7 +216,9 @@ async def handle_github_webhook(request: Request):
             return {
                 "status": "processed",
                 "event_type": event_type,
-                "repository": repository,
+                "repository": repository_name,
+                "repository_url": repository_url,
+                "project_id": project_id,
                 "branch": branch,
                 "commits_count": len(commits),
                 "commit_id": result.get("commit_id"),

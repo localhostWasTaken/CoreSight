@@ -78,10 +78,15 @@ class JobService:
             return None
     
     async def list_job_requisitions(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
-        """List job requisitions, optionally filtered by status"""
+        """List job requisitions, optionally filtered by status (comma-separated for multiple)"""
         filters = {}
         if status:
-            filters["status"] = status
+            # Support comma-separated statuses like "ready,posted"
+            statuses = [s.strip() for s in status.split(',')]
+            if len(statuses) == 1:
+                filters["status"] = statuses[0]
+            else:
+                filters["status"] = {"$in": statuses}
         return await self.db.find_many("job_requisitions", filters)
     
     async def update_job_requisition(

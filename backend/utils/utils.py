@@ -62,10 +62,27 @@ def error_response(message: str, details: Optional[dict] = None) -> dict:
 
 
 # Serialization helpers
+def _serialize_value(value):
+    """Recursively serialize a value, handling ObjectIds in nested structures."""
+    from bson import ObjectId
+    from datetime import datetime
+    
+    if isinstance(value, ObjectId):
+        return str(value)
+    elif isinstance(value, datetime):
+        return value.isoformat()
+    elif isinstance(value, list):
+        return [_serialize_value(item) for item in value]
+    elif isinstance(value, dict):
+        return {k: _serialize_value(v) for k, v in value.items()}
+    else:
+        return value
+
+
 def serialize_doc(doc: dict) -> dict:
     """
     Serialize a MongoDB document for JSON response.
-    Converts ObjectId to string.
+    Converts ObjectId to string, handles nested structures.
     """
     if doc is None:
         return None
@@ -74,10 +91,8 @@ def serialize_doc(doc: dict) -> dict:
     for key, value in doc.items():
         if key == "_id":
             result["id"] = str(value)
-        elif hasattr(value, "__str__") and type(value).__name__ == "ObjectId":
-            result[key] = str(value)
         else:
-            result[key] = value
+            result[key] = _serialize_value(value)
     
     return result
 

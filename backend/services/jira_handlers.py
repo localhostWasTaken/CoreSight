@@ -11,7 +11,7 @@ from ai import (
     extract_skills_from_task,
     generate_embedding,
     find_best_matching_users,
-    validate_user_assignment_with_llm,
+    evaluate_candidates_batch,
     generate_no_match_report
 )
 
@@ -194,84 +194,93 @@ async def handle_issue_created(webhook_data: Dict[str, Any], db: DatabaseManager
             "action_required": "fill_job_requisition"
         }
     
-    print(f"Found {len(matching_users)} potential matches:")
+    print(f"[JIRA ASSIGNMENT] Found {len(matching_users)} potential matches:")
     for i, user in enumerate(matching_users[:3], 1):
-        print(f"  {i}. {user['name']} - Match: {user['match_score']:.2%}")
+        print(f"  {i}. {user['name']} - Match: {user['match_score']:.2%} - Skills: {user['skills']}")
     
-    # Step 7: Validate with LLM
-    print("\n🔍 Validating assignment with LLM...")
-    best_user = matching_users[0]
-    
-    validation = await validate_user_assignment_with_llm(
-        user_name=best_user["name"],
-        user_skills=best_user["skills"],
+    # Step 7: Validate with LLM (Batch Evaluation)
+    print("\n🔍 Sending all candidates to LLM for critical evaluation...")
+    evaluation = await evaluate_candidates_batch(
+        candidates=matching_users,
         task_title=summary,
         task_description=description,
-        required_skills=required_skills,
-        match_score=best_user["match_score"]
+        required_skills=required_skills
     )
     
-    print(f"Can Do: {validation['can_do']} (Confidence: {validation['confidence']})")
-    print(f"Reasoning: {validation['reasoning']}")
+    print(f"[JIRA ASSIGNMENT] LLM Evaluation Result:")
+    print(f"  Selected User ID: {evaluation.get('selected_user_id')}")
+    print(f"  Confidence: {evaluation.get('confidence')}")
+    print(f"  Reasoning: {evaluation.get('reasoning')}")
     
-    # Step 8: Assign task if validated
-    if validation["can_do"] and validation["confidence"] > 0.5:
-        user_id_str = str(best_user["_id"])
+    selected_user_id = evaluation.get("selected_user_id")
+    
+    # Step 8: Assign task if LLM selected a user
+    if selected_user_id:
+        assigned_user = next((u for u in matching_users if str(u["_id"]) == selected_user_id), None)
         
-        # Update task with assignee
-        await db.update_one(
-            "tasks",
-            {"_id": task_id},
-            {"current_assignee_ids": [user_id_str]}
-        )
-        
-        # Create work session
-        work_session_doc = {
-            "task_id": str(task_id),
-            "user_id": user_id_str,
-            "start_time": datetime.utcnow(),
-            "end_time": None,
-            "duration_minutes": 0.0,
-            "assigned_by_user_id": None,  # System assigned
-        }
-        
-        session_id = await db.insert_one("work_sessions", work_session_doc)
-        
-        print(f"✅ Task assigned to {best_user['name']}")
-        print(f"📝 Work session created: {session_id}")
-        
-        return {
-            "status": "assigned",
-            "task_id": str(task_id),
-            "issue_key": issue_key,
-            "assigned_to": {
+        if assigned_user:
+            user_id_str = str(assigned_user["_id"])
+            
+            # Update task with assignee
+            await db.update_one(
+                "tasks",
+                {"_id": task_id},
+                {"current_assignee_ids": [user_id_str]}
+            )
+            
+            # Create work session
+            work_session_doc = {
+                "task_id": str(task_id),
                 "user_id": user_id_str,
-                "name": best_user["name"],
-                "match_score": best_user["match_score"],
-            },
-            "validation": validation,
-            "required_skills": required_skills,
-        }
-    else:
-        print(f"⚠️  Assignment not validated")
-        
-        # Try next best user
-        if len(matching_users) > 1:
-            print("Trying next best match...")
-            # Recursive or iterative approach for next user
-            # For now, just return with recommendation
-        
-        return {
-            "status": "validation_failed",
-            "task_id": str(task_id),
-            "issue_key": issue_key,
-            "attempted_user": best_user["name"],
-            "validation": validation,
-            "alternative_users": [
-                {"name": u["name"], "match_score": u["match_score"]}
-                for u in matching_users[1:4]
-            ],
-        }
+                "start_time": datetime.utcnow(),
+                "end_time": None,
+                "duration_minutes": 0.0,
+                "assigned_by_user_id": None,  # System assigned
+            }
+            
+            session_id = await db.insert_one("work_sessions", work_session_doc)
+            
+            print(f"✅ Task assigned to {assigned_user['name']}")
+            print(f"📝 Work session created: {session_id}")
+            
+            return {
+                "status": "assigned",
+                "task_id": str(task_id),
+                "issue_key": issue_key,
+                "assigned_to": {
+                    "user_id": user_id_str,
+                    "name": assigned_user["name"],
+                    "match_score": assigned_user["match_score"],
+                },
+                "validation": evaluation,
+                "required_skills": required_skills,
+            }
+    
+    # If LLM rejected all candidates, create job requisition
+    print(f"⚠️  LLM rejected all candidates. Creating Job Requisition...")
+    
+    report = await generate_no_match_report(
+        summary, description, required_skills, len(all_users)
+    )
+    
+    # Add LLM reasoning to report
+    if evaluation.get("reasoning"):
+        report["llm_evaluation_reasoning"] = evaluation["reasoning"]
+    
+    requisition_id = await create_job_requisition(
+        db, str(task_id), report, required_skills
+    )
+    
+    return {
+        "status": "no_qualified_match",
+        "task_id": str(task_id),
+        "issue_key": issue_key,
+        "report": report,
+        "requisition_id": str(requisition_id),
+        "action_required": "admin_approval_required",
+        "candidates_evaluated": len(matching_users),
+        "llm_reasoning": evaluation.get("reasoning")
+    }
 
 
 async def handle_sprint_created(webhook_data: Dict[str, Any], db: DatabaseManager) -> Dict[str, Any]:

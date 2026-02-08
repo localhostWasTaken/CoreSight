@@ -102,6 +102,100 @@ class ProjectService:
             "repo_url": repo_url,
             "total_budget": 0.0
         })
+    
+    async def add_contributor(
+        self,
+        project_id: str,
+        user_id: str
+    ) -> bool:
+        """
+        Add a user as a contributor to a project (if not already added).
+        
+        Args:
+            project_id: Project ID
+            user_id: User ID to add as contributor
+            
+        Returns:
+            True if successful
+        """
+        try:
+            from datetime import datetime
+            # Use $addToSet to avoid duplicates
+            result = await self.db.update_one_raw(
+                "projects",
+                {"_id": ObjectId(project_id)},
+                {
+                    "$addToSet": {"contributors": user_id},
+                    "$set": {"updated_at": datetime.utcnow()}
+                }
+            )
+            return result
+        except Exception as e:
+            print(f"Error adding contributor: {e}")
+            return False
+    
+    async def get_project_contributors(
+        self,
+        project_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of contributors for a project with their stats.
+        
+        Args:
+            project_id: Project ID
+            
+        Returns:
+            List of contributor info with stats
+        """
+        try:
+            project = await self.db.find_one("projects", {"_id": ObjectId(project_id)})
+            
+            if not project or "contributors" not in project:
+                return []
+            
+            contributor_ids = project.get("contributors", [])
+            
+            if not contributor_ids:
+                return []
+            
+            # Fetch user details
+            users = await self.db.find_many("users", {
+                "_id": {"$in": [ObjectId(uid) if isinstance(uid, str) else uid for uid in contributor_ids]}
+            })
+            
+            # Get commit stats for each contributor
+            contributors = []
+            for user in users:
+                user_id_str = str(user["_id"])
+                
+                # Count commits for this user in this project
+                commits = await self.db.find_many("commits", {
+                    "user_id": ObjectId(user_id_str),
+                    "repository": project.get("name")
+                })
+                
+                # Calculate stats
+                commit_count = len(commits)
+                total_lines_added = sum(c.get("lines_added", 0) for c in commits)
+                total_lines_deleted = sum(c.get("lines_deleted", 0) for c in commits)
+                last_commit = max((c.get("timestamp") for c in commits), default=None)
+                
+                contributors.append({
+                    "user_id": user_id_str,
+                    "name": user.get("name"),
+                    "email": user.get("email"),
+                    "skills": user.get("skills", []),
+                    "commit_count": commit_count,
+                    "lines_added": total_lines_added,
+                    "lines_deleted": total_lines_deleted,
+                    "last_commit": last_commit.isoformat() if last_commit else None
+                })
+            
+            return contributors
+            
+        except Exception as e:
+            print(f"Error getting project contributors: {e}")
+            return []
 
 
 # Convenience functions

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Briefcase, MapPin, Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Briefcase, MapPin, Upload, CheckCircle, AlertCircle, Loader2, Clock } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { jobAPI, linkedinAPI } from '../lib/api';
 
@@ -12,6 +12,7 @@ interface JobRequisition {
   created_at: string;
   linkedin_job_title_text?: string;
   linkedin_location_text?: string;
+  linkedin_job_id?: string;
 }
 
 interface SearchResult {
@@ -19,8 +20,26 @@ interface SearchResult {
   name: string;
 }
 
+// Debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function JobRequisitions() {
-  const [requisitions, setRequisitions] = useState<JobRequisition[]>([]);
+  const [pendingReqs, setPendingReqs] = useState<JobRequisition[]>([]);
+  const [approvedReqs, setApprovedReqs] = useState<JobRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReq, setSelectedReq] = useState<JobRequisition | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,15 +52,42 @@ export default function JobRequisitions() {
   const [locationResults, setLocationResults] = useState<SearchResult[]>([]);
   const [selectedTitle, setSelectedTitle] = useState<SearchResult | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<SearchResult | null>(null);
+  const [searchingTitles, setSearchingTitles] = useState(false);
+  const [searchingLocations, setSearchingLocations] = useState(false);
+
+  // Debounced search queries
+  const debouncedTitleQuery = useDebounce(titleQuery, 1500);
+  const debouncedLocationQuery = useDebounce(locationQuery,1500);
 
   useEffect(() => {
     loadRequisitions();
   }, []);
 
+  // Auto-search when debounced query changes
+  useEffect(() => {
+    if (debouncedTitleQuery && debouncedTitleQuery.length >= 3 && !selectedTitle) {
+      searchTitles(debouncedTitleQuery);
+    } else if (debouncedTitleQuery.length < 3) {
+      setTitleResults([]);
+    }
+  }, [debouncedTitleQuery]);
+
+  useEffect(() => {
+    if (debouncedLocationQuery && debouncedLocationQuery.length >= 3 && !selectedLocation) {
+      searchLocations(debouncedLocationQuery);
+    } else if (debouncedLocationQuery.length < 3) {
+      setLocationResults([]);
+    }
+  }, [debouncedLocationQuery]);
+
   const loadRequisitions = async () => {
     try {
-      const response = await jobAPI.list({ status: 'pending' });
-      setRequisitions(response.data);
+      const [pendingRes, approvedRes] = await Promise.all([
+        jobAPI.list({ status: 'pending' }),
+        jobAPI.list({ status: 'ready,posted' })
+      ]);
+      setPendingReqs(pendingRes.data);
+      setApprovedReqs(approvedRes.data);
     } catch (err) {
       console.error('Failed to load requisitions:', err);
     } finally {
@@ -51,7 +97,8 @@ export default function JobRequisitions() {
 
   const handleOpenModal = (req: JobRequisition) => {
     setSelectedReq(req);
-    setTitleQuery(req.suggested_title);
+    // Use empty string, not suggested title - that becomes placeholder
+    setTitleQuery('');
     setLocationQuery('');
     setSelectedTitle(null);
     setSelectedLocation(null);
@@ -61,24 +108,26 @@ export default function JobRequisitions() {
   };
 
   const searchTitles = async (query: string) => {
-    setTitleQuery(query);
-    if (query.length < 3) return;
+    setSearchingTitles(true);
     try {
       const res = await linkedinAPI.searchJobTitles(query);
       setTitleResults(res.data.results);
     } catch (err) {
       console.error(err);
+    } finally {
+      setSearchingTitles(false);
     }
   };
 
   const searchLocations = async (query: string) => {
-    setLocationQuery(query);
-    if (query.length < 3) return;
+    setSearchingLocations(true);
     try {
       const res = await linkedinAPI.searchLocations(query);
       setLocationResults(res.data.results);
     } catch (err) {
       console.error(err);
+    } finally {
+      setSearchingLocations(false);
     }
   };
 
@@ -107,51 +156,110 @@ export default function JobRequisitions() {
     }
   };
 
+  const renderRequisitionCard = (req: JobRequisition, isPending: boolean) => (
+    <div key={req._id} className="card hover:border-[rgb(var(--color-accent))] transition-colors">
+      <div className="card-body">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-xl font-semibold">{req.suggested_title}</h3>
+              {!isPending && (
+                <span className="badge badge-success text-xs">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Approved
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {req.required_skills?.map((skill, i) => (
+                <span key={i} className="badge badge-neutral text-xs">{skill}</span>
+              ))}
+            </div>
+            {req.linkedin_job_title_text && (
+              <div className="text-sm text-[rgb(var(--color-text-secondary))] mb-1">
+                <Briefcase className="w-3 h-3 inline mr-1" />
+                {req.linkedin_job_title_text}
+              </div>
+            )}
+            {req.linkedin_location_text && (
+              <div className="text-sm text-[rgb(var(--color-text-secondary))] mb-1">
+                <MapPin className="w-3 h-3 inline mr-1" />
+                {req.linkedin_location_text}
+              </div>
+            )}
+            <div className="text-sm text-[rgb(var(--color-text-tertiary))] mt-2">
+              <Clock className="w-3 h-3 inline mr-1" />
+              Created: {new Date(req.created_at).toLocaleDateString()}
+            </div>
+          </div>
+          {isPending && (
+            <button 
+              onClick={() => handleOpenModal(req)}
+              className="btn btn-primary btn-sm gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Review & Upload
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <AdminLayout>
       <div className="max-w-7xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Job Requisitions</h1>
           <p className="text-[rgb(var(--color-text-secondary))]">
-            Review and upload pending job requisitions to LinkedIn
+            Review and manage job requisitions created by the AI system
           </p>
         </div>
 
         {loading ? (
-          <div>Loading...</div>
-        ) : requisitions.length === 0 ? (
-          <div className="card card-body text-center py-12">
-            <Briefcase className="w-12 h-12 mx-auto mb-4 text-[rgb(var(--color-text-tertiary))]" />
-            <p>No pending job requisitions found.</p>
+          <div className="text-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+            <p className="text-[rgb(var(--color-text-secondary))]">Loading requisitions...</p>
           </div>
         ) : (
-          <div className="grid gap-4">
-            {requisitions.map((req) => (
-              <div key={req._id} className="card hover:border-[rgb(var(--color-accent))] transition-colors">
-                <div className="card-body">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2">{req.suggested_title}</h3>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {req.required_skills?.map((skill, i) => (
-                          <span key={i} className="badge badge-neutral text-xs">{skill}</span>
-                        ))}
-                      </div>
-                      <div className="text-sm text-[rgb(var(--color-text-tertiary))] mb-2">
-                        Created: {new Date(req.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => handleOpenModal(req)}
-                      className="btn btn-primary btn-sm gap-2"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Review & Upload
-                    </button>
-                  </div>
-                </div>
+          <div className="space-y-8">
+            {/* Pending Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle className="w-5 h-5 text-[rgb(var(--color-warning))]" />
+                <h2 className="text-2xl font-bold">Pending Approval</h2>
+                <span className="badge badge-warning">{pendingReqs.length}</span>
               </div>
-            ))}
+              
+              {pendingReqs.length === 0 ? (
+                <div className="card card-body text-center py-8">
+                  <p className="text-[rgb(var(--color-text-secondary))]">No pending requisitions</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {pendingReqs.map((req) => renderRequisitionCard(req, true))}
+                </div>
+              )}
+            </div>
+
+            {/* Approved Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle className="w-5 h-5 text-[rgb(var(--color-success))]" />
+                <h2 className="text-2xl font-bold">Approved & Posted</h2>
+                <span className="badge badge-success">{approvedReqs.length}</span>
+              </div>
+              
+              {approvedReqs.length === 0 ? (
+                <div className="card card-body text-center py-8">
+                  <p className="text-[rgb(var(--color-text-secondary))]">No approved requisitions yet</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {approvedReqs.map((req) => renderRequisitionCard(req, false))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -170,10 +278,18 @@ export default function JobRequisitions() {
                       <input 
                         type="text"
                         className="input w-full"
-                        placeholder="Search job titles..."
+                        placeholder={selectedReq.suggested_title}
                         value={titleQuery}
-                        onChange={(e) => searchTitles(e.target.value)}
+                        onChange={(e) => {
+                          setTitleQuery(e.target.value);
+                          setSelectedTitle(null);
+                        }}
                       />
+                      {searchingTitles && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="w-4 h-4 animate-spin text-[rgb(var(--color-text-tertiary))]" />
+                        </div>
+                      )}
                       {titleResults.length > 0 && !selectedTitle && (
                         <ul className="absolute z-10 w-full bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
                           {titleResults.map((res) => (
@@ -197,6 +313,11 @@ export default function JobRequisitions() {
                         <CheckCircle className="w-3 h-3" /> Selected: {selectedTitle.name}
                       </div>
                     )}
+                    {!selectedTitle && titleQuery.length > 0 && titleQuery.length < 3 && (
+                      <div className="mt-1 text-xs text-[rgb(var(--color-text-tertiary))]">
+                        Type at least 3 characters to search...
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-control">
@@ -207,10 +328,18 @@ export default function JobRequisitions() {
                       <input 
                         type="text"
                         className="input w-full"
-                        placeholder="Search locations..."
+                        placeholder="e.g., San Francisco, CA"
                         value={locationQuery}
-                        onChange={(e) => searchLocations(e.target.value)}
+                        onChange={(e) => {
+                          setLocationQuery(e.target.value);
+                          setSelectedLocation(null);
+                        }}
                       />
+                      {searchingLocations && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="w-4 h-4 animate-spin text-[rgb(var(--color-text-tertiary))]" />
+                        </div>
+                      )}
                       {locationResults.length > 0 && !selectedLocation && (
                         <ul className="absolute z-10 w-full bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
                           {locationResults.map((res) => (
@@ -232,6 +361,11 @@ export default function JobRequisitions() {
                     {selectedLocation && (
                       <div className="mt-1 text-sm text-[rgb(var(--color-success))] flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> Selected: {selectedLocation.name}
+                      </div>
+                    )}
+                    {!selectedLocation && locationQuery.length > 0 && locationQuery.length < 3 && (
+                      <div className="mt-1 text-xs text-[rgb(var(--color-text-tertiary))]">
+                        Type at least 3 characters to search...
                       </div>
                     )}
                   </div>

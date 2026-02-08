@@ -61,7 +61,8 @@ async def list_projects():
         
         projects = await service.list_projects()
         
-        return [serialize_doc(p) for p in projects]
+        from utils import serialize_docs
+        return serialize_docs(projects)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
@@ -127,3 +128,22 @@ async def delete_project(project_id: str):
         return {"message": "Project deleted successfully"}
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.get("/{project_id}/contributors", response_model=List[dict])
+async def get_project_contributors(project_id: str):
+    """
+    Get all contributors for a project with their stats.
+    
+    Returns user info, commit count, lines added/deleted, and last commit date.
+    """
+    try:
+        db = get_db()
+        service = ProjectService(db)
+        
+        contributors = await service.get_project_contributors(project_id)
+        
+        return contributors
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+

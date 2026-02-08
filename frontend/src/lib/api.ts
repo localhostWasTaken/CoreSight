@@ -30,6 +30,7 @@ export const userAPI = {
 export const taskAPI = {
   list: (params?: any) => api.get('/api/tasks', { params }),
   get: (id: string) => api.get(`/api/tasks/${id}`),
+  update: (id: string, data: any) => api.patch(`/api/tasks/${id}`, data),
   assign: (taskId: string, userId: string) => 
     api.post(`/api/tasks/${taskId}/assign/${userId}`),
 };

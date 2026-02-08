@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FolderKanban, Plus, ExternalLink, Calendar, DollarSign } from 'lucide-react';
+import { FolderKanban, Plus, ExternalLink, Calendar, DollarSign, Users, GitCommit } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { projectAPI } from '../lib/api';
+import axios from 'axios';
 
 interface Project {
   id: string;
@@ -15,14 +16,33 @@ interface Project {
   created_at: string;
 }
 
+interface Contributor {
+  user_id: string;
+  name: string;
+  email: string;
+  skills: string[];
+  commit_count: number;
+  lines_added: number;
+  lines_deleted: number;
+  last_commit: string | null;
+}
+
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [contributors, setContributors] = useState<Contributor[]>([]);
+  const [loadingContributors, setLoadingContributors] = useState(false);
 
   useEffect(() => {
     loadProjects();
   }, []);
+
+  useEffect(() => {
+    if (selectedProject) {
+      loadContributors(getProjectId(selectedProject));
+    }
+  }, [selectedProject]);
 
   const loadProjects = async () => {
     try {
@@ -35,6 +55,19 @@ export default function Projects() {
     }
   };
 
+  const loadContributors = async (projectId: string) => {
+    setLoadingContributors(true);
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/projects/${projectId}/contributors`);
+      setContributors(response.data);
+    } catch (err) {
+      console.error('Failed to load contributors:', err);
+      setContributors([]);
+    } finally {
+      setLoadingContributors(false);
+    }
+  };
+
   const getProjectId = (project: Project) => project.id || project._id || '';
 
   const getSpentPercentage = (project: Project) => {
@@ -44,7 +77,7 @@ export default function Projects() {
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl">
+      <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -130,7 +163,7 @@ export default function Projects() {
                   {/* Expanded Details */}
                   {selectedProject && getProjectId(selectedProject) === getProjectId(project) && (
                     <div className="mt-4 pt-4 border-t border-[rgb(var(--color-border))]">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                         <div>
                           <span className="text-[rgb(var(--color-text-tertiary))]">Total Budget</span>
                           <p className="font-semibold">${project.total_budget.toLocaleString()}</p>
@@ -148,7 +181,42 @@ export default function Projects() {
                           </div>
                         )}
                       </div>
-                      <div className="mt-4 flex gap-2">
+
+                      {/* Contributors Section */}
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Users className="w-4 h-4 text-[rgb(var(--color-accent))]" />
+                          <h4 className="font-semibold text-sm">Contributors</h4>
+                        </div>
+                        
+                        {loadingContributors ? (
+                          <p className="text-xs text-[rgb(var(--color-text-tertiary))]">Loading contributors...</p>
+                        ) : contributors.length === 0 ? (
+                          <p className="text-xs text-[rgb(var(--color-text-tertiary))]">No contributors yet</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {contributors.map((contributor) => (
+                              <div 
+                                key={contributor.user_id}
+                                className="flex items-center justify-between p-2 bg-[rgb(var(--color-surface-secondary))] rounded"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{contributor.name}</p>
+                                  <div className="flex items-center gap-2 text-xs text-[rgb(var(--color-text-tertiary))]">
+                                    <span className="flex items-center gap-1">
+                                      <GitCommit className="w-3 h-3" />
+                                      {contributor.commit_count} commits
+                                    </span>
+                                    <span>+{contributor.lines_added} -{contributor.lines_deleted}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
                         <button className="btn btn-secondary flex-1 text-xs py-2">
                           View Tasks
                         </button>

@@ -70,7 +70,9 @@ export default function Users() {
   const loadUsers = async () => {
     try {
       const response = await userAPI.list();
-      setUsers(response.data);
+      // Filter to show only employees (not admins)
+      const employees = response.data.filter((user: User) => user.role === 'employee');
+      setUsers(employees);
     } catch (err) {
       setError('Failed to load users');
       console.error(err);
@@ -80,31 +82,31 @@ export default function Users() {
   };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!confirm('Are you sure you want to delete this employee?')) return;
     
     try {
       await userAPI.delete(userId);
       setUsers(users.filter(u => u.id !== userId));
     } catch (err) {
-      alert('Failed to delete user');
+      alert('Failed to delete employee');
       console.error(err);
     }
   };
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl">
+      <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Users</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Employees</h1>
             <p className="text-[rgb(var(--color-text-secondary))]">
               Manage team members and their profiles
             </p>
           </div>
           <Link to="/users/new" className="btn btn-primary">
             <UserPlus className="w-4 h-4" />
-            Add User
+            Add Employee
           </Link>
         </div>
 
@@ -122,7 +124,6 @@ export default function Users() {
                 <tr>
                   <th>Name</th>
                   <th>Email</th>
-                  <th>Role</th>
                   <th>Hourly Rate</th>
                   <th>Skills</th>
                   <th className="text-right">Actions</th>
@@ -131,50 +132,49 @@ export default function Users() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-[rgb(var(--color-text-secondary))]">
-                      Loading users...
+                    <td colSpan={5} className="text-center py-8 text-[rgb(var(--color-text-secondary))]">
+                      Loading employees...
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-[rgb(var(--color-text-secondary))]">
-                      No users found. Add your first user to get started.
+                    <td colSpan={5} className="text-center py-8 text-[rgb(var(--color-text-secondary))]">
+                      No employees found. Add your first employee to get started.
                     </td>
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user.id || (user as any)._id}>
+                    <tr key={user.id} className="hover:bg-[rgb(var(--color-surface-secondary))]">
                       <td>
                         <div className="font-medium">{user.name}</div>
                       </td>
                       <td>
-                        <div className="flex items-center gap-2 text-[rgb(var(--color-text-secondary))]">
-                          <Mail className="w-4 h-4" />
+                        <div className="flex items-center gap-2 text-sm text-[rgb(var(--color-text-secondary))]">
+                          <Mail className="w-3 h-3" />
                           {user.email}
                         </div>
                       </td>
                       <td>
-                        <span className="badge badge-neutral">{user.role}</span>
+                        <span className="font-mono text-sm">
+                          ${user.hourly_rate}/hr
+                        </span>
                       </td>
-                      <td>${user.hourly_rate}/hr</td>
                       <td>
                         <UserSkills skills={user.skills} />
                       </td>
                       <td>
                         <div className="flex gap-2 justify-end">
                           <Link 
-                            to={`/users/${user.id || (user as any)._id}`}
-                            className="btn btn-ghost px-3 py-1 text-xs no-underline"
+                            to={`/users/${user.id}/edit`}
+                            className="btn btn-ghost btn-sm"
                           >
-                            <Edit className="w-3 h-3" />
-                            Edit
+                            <Edit className="w-4 h-4" />
                           </Link>
                           <button
-                            onClick={() => handleDelete(user.id || (user as any)._id)}
-                            className="btn btn-ghost px-3 py-1 text-xs text-[rgb(var(--color-error))]"
+                            onClick={() => handleDelete(user.id)}
+                            className="btn btn-ghost btn-sm text-[rgb(var(--color-error))] hover:bg-[rgb(var(--color-error))]/10"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            Delete
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

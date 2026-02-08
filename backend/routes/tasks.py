@@ -5,6 +5,7 @@ Handles task management endpoints.
 """
 
 from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 
 from utils import get_db, serialize_doc, serialize_docs
@@ -33,28 +34,38 @@ async def list_tasks(
             assignee_id=assignee_id
         )
         
+        # Sort by created_at descending (latest first)
+        tasks = sorted(tasks, key=lambda t: t.get("created_at", datetime.min), reverse=True)
+        
         # Collect all user IDs to fetch names
         user_ids = set()
         for task in tasks:
             current_assignees = task.get("current_assignee_ids", [])
             for uid in current_assignees:
                 if uid:
-                    user_ids.add(uid)
+                    user_ids.add(str(uid))  # Ensure string format
         
         # Fetch users
         users_map = {}
         if user_ids:
             try:
                 from bson import ObjectId
-                # Convert string IDs to ObjectId if needed, currently assuming strings in list
-                # But typically DB IDs are ObjectIds. user_ids from task doc might be strings or ObjectIds.
-                # Let's handle both or assume standard string format if that's what's stored.
-                # Safely trying to fetch users.
-                users_cursor = await db["users"].find({"_id": {"$in": [ObjectId(uid) for uid in user_ids]}}).to_list(length=None)
-                for user in users_cursor:
+                # Try to convert to ObjectId, but also handle if they're already strings
+                object_ids = []
+                for uid in user_ids:
+                    try:
+                        object_ids.append(ObjectId(uid))
+                    except:
+                        # If conversion fails, try as-is
+                        object_ids.append(uid)
+                
+                # Use DatabaseManager's find_many method
+                users = await db.find_many("users", {"_id": {"$in": object_ids}})
+                for user in users:
                     users_map[str(user["_id"])] = user.get("name", "Unknown")
-            except Exception:
+            except Exception as e:
                 # Fallback if IDs are not valid ObjectIds or other error
+                print(f"[TASKS] Error fetching users: {e}")
                 pass
 
         # Serialize and populate details
@@ -68,9 +79,9 @@ async def list_tasks(
             if assignee_ids:
                 # For now, just show the first assignee as the primary one, or join names
                 # The frontend expectation seems to be singular 'assignee_name'
-                first_id = assignee_ids[0]
-                task_data["assignee_id"] = str(first_id)
-                task_data["assignee_name"] = users_map.get(str(first_id), "Unknown User")
+                first_id = str(assignee_ids[0])
+                task_data["assignee_id"] = first_id
+                task_data["assignee_name"] = users_map.get(first_id, "Unknown User")
                 
                 # Also provide formatted list if needed later
                 task_data["assignees"] = [
@@ -125,6 +136,31 @@ async def get_task_by_external_id(external_id: str):
         task_data.pop("description_embeddings", None)
         
         return task_data
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.patch("/{task_id}", response_model=dict)
+async def update_task(task_id: str, update_data: dict):
+    """
+    Update a task's fields (e.g., status, priority, etc.)
+    """
+    try:
+        from pydantic import BaseModel
+        from datetime import datetime
+        
+        db = get_db()
+        service = TaskService(db)
+        
+        # Add updated_at timestamp
+        update_data["updated_at"] = datetime.utcnow()
+        
+        success = await service.update_task(task_id, update_data)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        return {"message": "Task updated successfully"}
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
