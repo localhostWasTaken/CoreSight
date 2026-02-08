@@ -18,12 +18,14 @@ router = APIRouter(prefix="/api/projects", tags=["Projects"])
 # Request models
 class ProjectCreate(BaseModel):
     name: str
+    jira_space_id: Optional[str] = None
     repo_url: Optional[str] = None
     total_budget: float = 0.0
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
+    jira_space_id: Optional[str] = None
     repo_url: Optional[str] = None
     total_budget: Optional[float] = None
 

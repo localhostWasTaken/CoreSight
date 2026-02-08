@@ -1,11 +1,18 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 interface User {
   id: string;
   email: string;
   name: string;
   role: string;
+}
+
+interface DecodedToken extends User {
+  sub: string;
+  exp: number;
 }
 
 interface AuthContextType {
@@ -37,9 +44,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedToken = localStorage.getItem('token');
     if (storedToken) {
       try {
-        const decoded = jwtDecode<User>(storedToken);
-        setUser(decoded);
-        setToken(storedToken);
+        const decoded = jwtDecode<DecodedToken>(storedToken);
+        
+        // Check if token is expired
+        if (decoded.exp * 1000 < Date.now()) {
+          localStorage.removeItem('token');
+        } else {
+          setUser({
+            id: decoded.sub,
+            email: decoded.email,
+            name: decoded.name,
+            role: decoded.role
+          });
+          setToken(storedToken);
+        }
       } catch (error) {
         localStorage.removeItem('token');
       }
@@ -48,27 +66,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      // For demo purposes - in production, this would call your backend
-      // const response = await axios.post('/api/auth/login', { email, password });
-      // const { token } = response.data;
-      
-      // Mock JWT token for now
-      const mockToken = btoa(JSON.stringify({
-        id: '1',
-        email,
-        name: 'Admin User',
-        role: 'admin',
-        exp: Date.now() + 86400000, // 24 hours
-      }));
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-      localStorage.setItem('token', mockToken);
-      const decoded = jwtDecode<User>(mockToken);
-      setUser(decoded);
-      setToken(mockToken);
-    } catch (error) {
-      throw new Error('Login failed');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Login failed');
     }
+
+    const data = await response.json();
+    const { access_token, user: userData } = data;
+
+    localStorage.setItem('token', access_token);
+    setToken(access_token);
+    setUser(userData);
   };
 
   const logout = () => {

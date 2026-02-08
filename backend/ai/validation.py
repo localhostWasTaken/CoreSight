@@ -1,9 +1,10 @@
 """
 LLM Validation Functions for CoreSight
+Using Featherless AI (OpenAI-compatible)
 """
 
 import json
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from .client import client, LLM_MODEL
 
@@ -18,19 +19,10 @@ async def validate_user_assignment_with_llm(
 ) -> Dict[str, any]:
     """
     Use LLM to validate if a user can perform the task
-    
-    Returns:
-        {
-            "can_do": bool,
-            "confidence": float (0-1),
-            "reasoning": str,
-            "recommendations": str
-        }
     """
     desc = task_description or "No description provided"
     
-    prompt = f"""
-You are an expert technical manager assessing if a developer can handle a task.
+    prompt = f"""You are an expert technical manager assessing if a developer can handle a task.
 
 Developer: {user_name}
 Developer Skills: {', '.join(user_skills)}
@@ -48,21 +40,16 @@ Return ONLY a valid JSON object with this structure:
     "confidence": 0.85,
     "reasoning": "Brief explanation of why they can or cannot do it",
     "recommendations": "Suggestions for the developer or alternative actions"
-}}
-
-Assessment:"""
+}}"""
     
     try:
         response = client.chat.completions.create(
             model=LLM_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a technical assessment expert. Return only valid JSON objects."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.4,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
         )
         
-        content = response.model_dump()['choices'][0]['message']['content'].strip()
+        content = response.choices[0].message.content.strip()
         
         # Extract JSON object
         start = content.find('{')
@@ -89,3 +76,86 @@ Assessment:"""
             "reasoning": f"Automated assessment: {match_score:.2%} match",
             "recommendations": "Manual review recommended"
         }
+
+
+async def evaluate_candidates_batch(
+    candidates: List[Dict],
+    task_title: str,
+    task_description: str,
+    required_skills: List[str]
+) -> Dict[str, any]:
+    """
+    Evaluate multiple candidates and pick the best one using LLM.
+    
+    Args:
+        candidates: List of user dicts (name, skills, match_score, _id)
+        task_title: Task title
+        task_description: Task description
+        required_skills: List of required skills
+        
+    Returns:
+        Dict with 'selected_user_id' (or None), 'reasoning', 'confidence'
+    """
+    if not candidates:
+        return {"selected_user_id": None, "reasoning": "No candidates provided", "confidence": 0}
+        
+    desc = task_description or "No description provided"
+    
+    # Format candidates for prompt
+    candidates_text = ""
+    for i, user in enumerate(candidates):
+        candidates_text += f"""
+Candidate {i+1}:
+- Name: {user.get('name')}
+- ID: {str(user.get('_id'))}
+- Skills: {', '.join(user.get('skills', []))}
+- Vector Match Score: {user.get('match_score', 0):.2f}
+"""
+
+    prompt = f"""You are an expert technical manager assigning a task to the best available developer. You are CRITICAL and STRICT about requirements.
+
+Task: {task_title}
+Description: {desc}
+Required Skills: {', '.join(required_skills)}
+
+Available Candidates (ranked by vector similarity):
+{candidates_text}
+
+Analyze these candidates. Select the ONE best candidate who can definitely complete the task.
+CRITICAL INSTRUCTION:
+- Do NOT pick a candidate just to pick someone.
+- If a candidate lacks essential skills or seems underqualified, do NOT select them.
+- If NO candidate is fully qualified, you MUST select "None".
+- It is better to hire a new person (select None) than to assign an unqualified developer.
+
+Return ONLY a valid JSON object with this structure:
+{{
+    "selected_candidate_index": 1 (or null if none),
+    "selected_user_id": "string_id_from_candidate" (or null if none),
+    "confidence": 0.9,
+    "reasoning": "Detailed explanation of why this candidate was chosen, or why all were rejected (citing missing skills)."
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2, # Lower temperature for decision making
+        )
+        
+        content = response.choices[0].message.content.strip()
+        
+        # Extract JSON object
+        start = content.find('{')
+        end = content.rfind('}') + 1
+        
+        if start != -1 and end != 0:
+            json_str = content[start:end]
+            result = json.loads(json_str)
+            return result
+        
+        return {"selected_user_id": None, "reasoning": "Failed to parse LLM decision", "confidence": 0}
+
+    except Exception as e:
+        print(f"Error in batch evaluation: {e}")
+        return {"selected_user_id": None, "reasoning": f"Error: {str(e)}", "confidence": 0}

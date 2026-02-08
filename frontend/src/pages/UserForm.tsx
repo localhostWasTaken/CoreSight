@@ -1,12 +1,16 @@
-import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, FormEvent } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { userAPI } from '../lib/api';
 
 export default function UserForm() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = Boolean(id);
+  
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(isEditMode);
   const [error, setError] = useState('');
   
   const [formData, setFormData] = useState({
@@ -18,6 +22,34 @@ export default function UserForm() {
     github_username: '',
     jira_account_id: '',
   });
+
+  // Fetch user data if editing
+  useEffect(() => {
+    if (isEditMode && id) {
+      fetchUser();
+    }
+  }, [id]);
+
+  const fetchUser = async () => {
+    try {
+      const response = await userAPI.get(id!);
+      const user = response.data;
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        role: user.role || 'employee',
+        hourly_rate: user.hourly_rate || 50,
+        skills: (user.skills || []).join(', '),
+        github_username: user.github_username || '',
+        jira_account_id: user.jira_account_id || '',
+      });
+    } catch (err) {
+      setError('Failed to load user');
+      console.error(err);
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -32,15 +64,31 @@ export default function UserForm() {
         jira_account_id: formData.jira_account_id || undefined,
       };
 
-      await userAPI.create(payload);
+      if (isEditMode) {
+        await userAPI.update(id!, payload);
+      } else {
+        await userAPI.create(payload);
+      }
       navigate('/users');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create user');
+      setError(err.response?.data?.detail || `Failed to ${isEditMode ? 'update' : 'create'} user`);
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
+  if (fetching) {
+    return (
+      <AdminLayout>
+        <div className="max-w-3xl">
+          <div className="text-center py-12 text-[rgb(var(--color-text-secondary))]">
+            Loading user...
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -54,9 +102,14 @@ export default function UserForm() {
             <ArrowLeft className="w-4 h-4" />
             Back to Users
           </button>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Add New User</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">
+            {isEditMode ? 'Edit User' : 'Add New User'}
+          </h1>
           <p className="text-[rgb(var(--color-text-secondary))]">
-            Create a new team member profile with skills and work information
+            {isEditMode 
+              ? 'Update team member profile and work information'
+              : 'Create a new team member profile with skills and work information'
+            }
           </p>
         </div>
 
@@ -209,7 +262,7 @@ export default function UserForm() {
                 disabled={loading}
               >
                 <Save className="w-4 h-4" />
-                {loading ? 'Creating...' : 'Create User'}
+                {loading ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create User')}
               </button>
             </div>
           </div>

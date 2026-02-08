@@ -167,6 +167,29 @@ class JobService:
                 "error": str(e)
             }
     
+    async def approve_job_requisition(self, requisition_id: str) -> bool:
+        """
+        Approve a job requisition.
+        
+        Args:
+            requisition_id: Requisition ID to approve
+            
+        Returns:
+            True if approved successfully
+        """
+        requisition = await self.get_job_requisition(requisition_id)
+        if not requisition:
+            return False
+        
+        return await self.db.update_one(
+            "job_requisitions",
+            {"_id": ObjectId(requisition_id)},
+            {
+                "admin_approved": True,
+                "updated_at": datetime.utcnow(),
+            }
+        )
+    
     async def delete_job_requisition(self, requisition_id: str) -> bool:
         """Delete a job requisition"""
         return await self.db.delete_one("job_requisitions", {"_id": ObjectId(requisition_id)})

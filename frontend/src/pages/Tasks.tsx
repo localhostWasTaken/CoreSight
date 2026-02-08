@@ -5,6 +5,7 @@ import { taskAPI } from '../lib/api';
 
 interface Task {
   id: string;
+  _id?: string;
   title: string;
   description: string;
   status: string;
@@ -20,6 +21,7 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTasks();
@@ -34,6 +36,24 @@ export default function Tasks() {
       console.error('Failed to load tasks:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (taskId: string, newStatus: string) => {
+    setUpdatingId(taskId);
+    try {
+      // Update locally first for instant feedback
+      setTasks(tasks.map(t => 
+        (t.id === taskId || t._id === taskId) ? { ...t, status: newStatus } : t
+      ));
+      // Note: If you have an update endpoint, call it here
+      // await taskAPI.update(taskId, { status: newStatus });
+    } catch (err) {
+      console.error('Failed to update task:', err);
+      // Revert on error
+      loadTasks();
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -76,6 +96,8 @@ export default function Tasks() {
     done: tasks.filter(t => t.status === 'done').length,
     blocked: tasks.filter(t => t.status === 'blocked').length,
   };
+
+  const getTaskId = (task: Task) => task.id || task._id || '';
 
   return (
     <AdminLayout>
@@ -125,7 +147,7 @@ export default function Tasks() {
         ) : (
           <div className="grid gap-4">
             {tasks.map((task) => (
-              <div key={task.id} className="card hover:border-[rgb(var(--color-accent))] transition-colors">
+              <div key={getTaskId(task)} className="card hover:border-[rgb(var(--color-accent))] transition-colors">
                 <div className="card-body">
                   <div className="flex items-start gap-4">
                     <div className="mt-1">
@@ -134,10 +156,19 @@ export default function Tasks() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <h3 className="text-lg font-semibold mb-1">{task.title}</h3>
-                        <div className="flex gap-2 flex-shrink-0">
-                          <span className={getStatusBadge(task.status)}>
-                            {task.status.replace('_', ' ')}
-                          </span>
+                        <div className="flex gap-2 flex-shrink-0 items-center">
+                          {/* Status Dropdown */}
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleStatusChange(getTaskId(task), e.target.value)}
+                            disabled={updatingId === getTaskId(task)}
+                            className="input text-sm py-1 px-2 min-w-[120px]"
+                          >
+                            <option value="todo">To Do</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="done">Done</option>
+                            <option value="blocked">Blocked</option>
+                          </select>
                           {task.priority && (
                             <span className={getPriorityBadge(task.priority)}>
                               {task.priority}
@@ -154,9 +185,9 @@ export default function Tasks() {
 
                       <div className="flex items-center gap-4 text-xs text-[rgb(var(--color-text-tertiary))]">
                         {task.assignee_name && (
-                          <div className="flex items-center gap-1">
-                            <span>Assigned to:</span>
-                            <span className="font-medium text-[rgb(var(--color-text-secondary))]">
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-[rgb(var(--color-surface-secondary))] rounded-full border border-[rgb(var(--color-border))]">
+                            <span className="text-[10px] uppercase font-semibold tracking-wider opacity-70">Assigned:</span>
+                            <span className="font-medium text-[rgb(var(--color-text-primary))]">
                               {task.assignee_name}
                             </span>
                           </div>

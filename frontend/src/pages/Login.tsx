@@ -102,7 +102,7 @@ export default function Login() {
 
             <div className="mt-6 pt-6 border-t border-[rgb(var(--color-border))]">
               <p className="text-xs text-[rgb(var(--color-text-tertiary))] text-center">
-                Demo: Use any email and password to login
+                Admin: admin@gmail.com / password123
               </p>
             </div>
           </div>

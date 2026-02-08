@@ -131,6 +131,27 @@ async def post_job_to_linkedin(requisition_id: str):
         raise HTTPException(status_code=503, detail=str(e))
 
 
+@router.post("/requisitions/{requisition_id}/approve", response_model=dict)
+async def approve_job_requisition(requisition_id: str):
+    """
+    Approve a job requisition for posting.
+    
+    Admin must approve a requisition before it can be posted to LinkedIn.
+    """
+    try:
+        db = get_db()
+        service = JobService(db)
+        
+        success = await service.approve_job_requisition(requisition_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Job requisition not found")
+        
+        return {"message": "Job requisition approved successfully"}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
 @router.delete("/requisitions/{requisition_id}", response_model=dict)
 async def delete_job_requisition(requisition_id: str):
     """

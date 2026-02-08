@@ -33,11 +33,51 @@ async def list_tasks(
             assignee_id=assignee_id
         )
         
-        # Remove embeddings from response
+        # Collect all user IDs to fetch names
+        user_ids = set()
+        for task in tasks:
+            current_assignees = task.get("current_assignee_ids", [])
+            for uid in current_assignees:
+                if uid:
+                    user_ids.add(uid)
+        
+        # Fetch users
+        users_map = {}
+        if user_ids:
+            try:
+                from bson import ObjectId
+                # Convert string IDs to ObjectId if needed, currently assuming strings in list
+                # But typically DB IDs are ObjectIds. user_ids from task doc might be strings or ObjectIds.
+                # Let's handle both or assume standard string format if that's what's stored.
+                # Safely trying to fetch users.
+                users_cursor = await db["users"].find({"_id": {"$in": [ObjectId(uid) for uid in user_ids]}}).to_list(length=None)
+                for user in users_cursor:
+                    users_map[str(user["_id"])] = user.get("name", "Unknown")
+            except Exception:
+                # Fallback if IDs are not valid ObjectIds or other error
+                pass
+
+        # Serialize and populate details
         result = []
         for task in tasks:
             task_data = serialize_doc(task)
             task_data.pop("description_embeddings", None)
+            
+            # Populate assignee details
+            assignee_ids = task.get("current_assignee_ids", [])
+            if assignee_ids:
+                # For now, just show the first assignee as the primary one, or join names
+                # The frontend expectation seems to be singular 'assignee_name'
+                first_id = assignee_ids[0]
+                task_data["assignee_id"] = str(first_id)
+                task_data["assignee_name"] = users_map.get(str(first_id), "Unknown User")
+                
+                # Also provide formatted list if needed later
+                task_data["assignees"] = [
+                    {"id": str(uid), "name": users_map.get(str(uid), "Unknown")}
+                    for uid in assignee_ids
+                ]
+            
             result.append(task_data)
         
         return result

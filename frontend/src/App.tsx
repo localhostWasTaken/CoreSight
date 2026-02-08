@@ -9,6 +9,7 @@ import Tasks from './pages/Tasks';
 import Projects from './pages/Projects';
 import Analytics from './pages/Analytics';
 import Activity from './pages/Activity';
+import JobRequisitions from './pages/JobRequisitions';
 
 function App() {
   return (
@@ -44,6 +45,14 @@ function App() {
             }
           />
           <Route
+            path="/users/:id"
+            element={
+              <ProtectedRoute>
+                <UserForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/tasks"
             element={
               <ProtectedRoute>
@@ -72,6 +81,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Activity />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/jobs"
+            element={
+              <ProtectedRoute>
+                <JobRequisitions />
               </ProtectedRoute>
             }
           />

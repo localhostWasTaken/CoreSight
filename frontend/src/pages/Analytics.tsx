@@ -28,10 +28,11 @@ export default function Analytics() {
 
       // Try to load impact data for each user
       const profilePromises = users.slice(0, 5).map(async (user: any) => {
+        const userId = user.id || user._id;
         try {
-          const impactRes = await analyticsAPI.userImpact(user.id);
+          const impactRes = await analyticsAPI.userImpact(userId);
           return {
-            user_id: user.id,
+            user_id: userId,
             user_name: user.name,
             profile: impactRes.data.data.profile || 'balanced',
             total_commits: impactRes.data.data.total_commits || 0,

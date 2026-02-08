@@ -13,7 +13,7 @@ from .client import client, EMBEDDING_MODEL, LLM_MODEL
 from .embeddings import generate_embedding, calculate_cosine_similarity
 from .skills import extract_skills_from_task, extract_skills_fallback
 from .matching import find_best_matching_users
-from .validation import validate_user_assignment_with_llm
+from .validation import validate_user_assignment_with_llm, evaluate_candidates_batch
 from .reports import generate_no_match_report, generate_fallback_job_description
 from .analysis import (
     check_issue_duplicate_with_llm,
@@ -36,6 +36,7 @@ __all__ = [
     "find_best_matching_users",
     # Validation
     "validate_user_assignment_with_llm",
+    "evaluate_candidates_batch",
     # Reports
     "generate_no_match_report",
     "generate_fallback_job_description",

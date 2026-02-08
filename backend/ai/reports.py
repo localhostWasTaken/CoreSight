@@ -1,5 +1,6 @@
 """
 Report Generation Functions for CoreSight
+Using Featherless AI (OpenAI-compatible)
 """
 
 import json
@@ -17,23 +18,10 @@ async def generate_no_match_report(
     """
     Generate a critical report when no suitable users are found.
     Also generates job posting data for LinkedIn.
-    
-    Returns:
-        {
-            "severity": "critical",
-            "message": str,
-            "missing_skills": List[str],
-            "recommendations": List[str],
-            "should_post_job": bool,
-            "suggested_job_title": str,
-            "suggested_job_description": str,  # HTML-formatted for LinkedIn
-            "required_experience_years": int
-        }
     """
     desc = task_description or "No description provided"
     
-    prompt = f"""
-You are a critical technical resource manager and expert job description writer. 
+    prompt = f"""You are a critical technical resource manager and expert job description writer. 
 A task cannot be assigned because no developers match the required skills.
 
 Task: {task_title}
@@ -58,21 +46,16 @@ Return ONLY a valid JSON object with this structure:
 IMPORTANT: 
 - The job description must be valid HTML suitable for LinkedIn job posting
 - Keep it professional and engaging
-- Focus on the specific skills needed for the task
-
-Assessment:"""
+- Focus on the specific skills needed for the task"""
     
     try:
         response = client.chat.completions.create(
             model=LLM_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a critical resource gap analyst and job description expert. Return only valid JSON with HTML job descriptions."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
         
-        content = response.model_dump()['choices'][0]['message']['content'].strip()
+        content = response.choices[0].message.content.strip()
         
         start = content.find('{')
         end = content.rfind('}') + 1

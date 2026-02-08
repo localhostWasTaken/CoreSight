@@ -15,6 +15,7 @@ from ai import (
     extract_skills_from_task,
     find_best_matching_users,
     validate_user_assignment_with_llm,
+    evaluate_candidates_batch,
     generate_no_match_report,
     check_issue_duplicate_with_llm,
 )
@@ -115,10 +116,13 @@ class IssueService:
                 "required_skills": required_skills,
             }
         
+        print(f"\n[ASSIGNMENT LOG] Step 4: Extracted Required Skills: {required_skills}")
+
         # Step 5: Find matching users
         all_users = await self.db.find_many("users", {})
         
         if not all_users:
+            print("[ASSIGNMENT LOG] No users found in database. Creating Job Requisition.")
             # No users - create job requisition
             report = await generate_no_match_report(
                 title, description, required_skills, 0
@@ -160,6 +164,7 @@ class IssueService:
         )
         
         if not matching_users:
+            print("[ASSIGNMENT LOG] No matching users found via Vector Search. Creating Job Requisition.")
             # No matching users - create job requisition
             report = await generate_no_match_report(
                 title, description, required_skills, len(all_users)
@@ -182,57 +187,87 @@ class IssueService:
                 "action_required": "fill_job_requisition",
                 "required_skills": required_skills,
             }
+
+        print(f"[ASSIGNMENT LOG] Step 5: Found {len(matching_users)} potential candidates via Vector Search:")
+        for idx, u in enumerate(matching_users):
+            print(f"  {idx+1}. {u['name']} (Score: {u['match_score']:.4f}) - Skills: {u['skills']}")
         
-        # Step 6: Validate with LLM
-        best_user = matching_users[0]
-        
-        validation = await validate_user_assignment_with_llm(
-            user_name=best_user["name"],
-            user_skills=best_user["skills"],
+        # Step 6: Validate with LLM (Batch Evaluation)
+        print("[ASSIGNMENT LOG] Step 6: Sending candidates to LLM for critical evaluation...")
+        evaluation = await evaluate_candidates_batch(
+            candidates=matching_users,
             task_title=title,
             task_description=description,
-            required_skills=required_skills,
-            match_score=best_user["match_score"]
+            required_skills=required_skills
         )
         
-        # Step 7: Assign if validated
-        if validation.get("can_do") and validation.get("confidence", 0) > 0.5:
-            user_id_str = str(best_user["_id"])
+        print(f"[ASSIGNMENT LOG] LLM Evaluation Result:")
+        print(f"  Selected User ID: {evaluation.get('selected_user_id')}")
+        print(f"  Confidence: {evaluation.get('confidence')}")
+        print(f"  Reasoning: {evaluation.get('reasoning')}")
+        
+        selected_user_id = evaluation.get("selected_user_id")
+        
+        # Step 7: Assign if a user was selected
+        if selected_user_id:
+            # Find the full user object
+            assigned_user = next((u for u in matching_users if str(u["_id"]) == selected_user_id), None)
             
-            await self.db.update_one(
-                "issues",
-                {"_id": issue_id},
-                {
-                    "assigned_user_id": user_id_str,
-                    "assignment_status": "assigned",
-                    "updated_at": datetime.utcnow(),
+            if assigned_user:
+                print(f"[ASSIGNMENT LOG] Step 7: APPROVED. Assigning task to {assigned_user['name']}.")
+                await self.db.update_one(
+                    "issues",
+                    {"_id": issue_id},
+                    {
+                        "assigned_user_id": selected_user_id,
+                        "assignment_status": "assigned",
+                        "updated_at": datetime.utcnow(),
+                    }
+                )
+                
+                return {
+                    "issue_id": str(issue_id),
+                    "status": "assigned",
+                    "assigned_to": {
+                        "user_id": selected_user_id,
+                        "name": assigned_user["name"],
+                        "match_score": assigned_user["match_score"],
+                    },
+                    "validation": evaluation,
+                    "required_skills": required_skills,
                 }
-            )
+        
+        # If no user was selected by LLM
+        print("[ASSIGNMENT LOG] Step 7: REJECTED. No candidate met strict requirements. Creating Job Requisition.")
+        # Create job requisition
+        report = await generate_no_match_report(
+            title, description, required_skills, len(all_users)
+        )
+        
+        # Add LLM reasoning to the report context if available
+        if evaluation.get("reasoning"):
+            report["llm_evaluation_reasoning"] = evaluation["reasoning"]
             
-            return {
-                "issue_id": str(issue_id),
-                "status": "assigned",
-                "assigned_to": {
-                    "user_id": user_id_str,
-                    "name": best_user["name"],
-                    "match_score": best_user["match_score"],
-                },
-                "validation": validation,
-                "required_skills": required_skills,
-            }
-        else:
-            # Validation failed - suggest alternatives
-            return {
-                "issue_id": str(issue_id),
-                "status": "validation_failed",
-                "attempted_user": best_user["name"],
-                "validation": validation,
-                "alternative_users": [
-                    {"name": u["name"], "match_score": u["match_score"]}
-                    for u in matching_users[1:4]
-                ],
-                "required_skills": required_skills,
-            }
+        requisition_id = await create_job_requisition_from_report(
+            self.db, str(issue_id), report, required_skills
+        )
+        
+        await self.db.update_one(
+            "issues",
+            {"_id": issue_id},
+            {"assignment_status": "posting_required"}
+        )
+        
+        return {
+            "issue_id": str(issue_id),
+            "status": "no_qualified_match",
+            "report": report,
+            "requisition_id": requisition_id,
+            "action_required": "fill_job_requisition",
+            "required_skills": required_skills,
+            "candidates_evaluated": len(matching_users),
+            "llm_reasoning": evaluation.get("reasoning")
+        }
     
     async def get_issue(self, issue_id: str) -> Optional[Dict[str, Any]]:
         """Get an issue by ID"""

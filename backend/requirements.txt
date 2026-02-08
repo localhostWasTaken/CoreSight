@@ -8,9 +8,15 @@ pymongo
 motor
 
 # AI/ML
+google-genai
 openai
 numpy
 
 # Utilities
 python-dotenv
 httpx
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart

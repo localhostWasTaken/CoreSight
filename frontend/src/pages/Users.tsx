@@ -13,6 +13,51 @@ interface User {
   skills: string[];
 }
 
+function UserSkills({ skills }: { skills: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const LIMIT = 5;
+
+  if (!skills || skills.length === 0) {
+    return (
+      <span className="text-xs text-[rgb(var(--color-text-tertiary))] italic">
+        No skills listed
+      </span>
+    );
+  }
+
+  if (skills.length <= LIMIT) {
+    return (
+      <div className="flex gap-1 flex-wrap max-w-xs">
+        {skills.map((skill, idx) => (
+          <span key={idx} className="badge badge-info text-xs px-2 py-0.5">
+            {skill}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  const displayedSkills = expanded ? skills : skills.slice(0, LIMIT);
+
+  return (
+    <div className="flex flex-col items-start gap-1 max-w-xs">
+      <div className="flex gap-1 flex-wrap">
+        {displayedSkills.map((skill, idx) => (
+          <span key={idx} className="badge badge-info text-xs px-2 py-0.5">
+            {skill}
+          </span>
+        ))}
+      </div>
+      <button 
+        onClick={() => setExpanded(!expanded)}
+        className="text-[10px] uppercase font-bold tracking-wider text-[rgb(var(--color-primary))] hover:text-[rgb(var(--color-primary-hover))] mt-1"
+      >
+        {expanded ? 'Show Less' : `+ ${skills.length - LIMIT} More`}
+      </button>
+    </div>
+  );
+}
+
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +143,7 @@ export default function Users() {
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user.id}>
+                    <tr key={user.id || (user as any)._id}>
                       <td>
                         <div className="font-medium">{user.name}</div>
                       </td>
@@ -113,30 +158,19 @@ export default function Users() {
                       </td>
                       <td>${user.hourly_rate}/hr</td>
                       <td>
-                        <div className="flex gap-1 flex-wrap">
-                          {user.skills.slice(0, 3).map((skill, idx) => (
-                            <span key={idx} className="badge badge-info text-xs">
-                              {skill}
-                            </span>
-                          ))}
-                          {user.skills.length > 3 && (
-                            <span className="text-xs text-[rgb(var(--color-text-tertiary))]">
-                              +{user.skills.length - 3} more
-                            </span>
-                          )}
-                        </div>
+                        <UserSkills skills={user.skills} />
                       </td>
                       <td>
                         <div className="flex gap-2 justify-end">
                           <Link 
-                            to={`/users/${user.id}`}
+                            to={`/users/${user.id || (user as any)._id}`}
                             className="btn btn-ghost px-3 py-1 text-xs no-underline"
                           >
                             <Edit className="w-3 h-3" />
                             Edit
                           </Link>
                           <button
-                            onClick={() => handleDelete(user.id)}
+                            onClick={() => handleDelete(user.id || (user as any)._id)}
                             className="btn btn-ghost px-3 py-1 text-xs text-[rgb(var(--color-error))]"
                           >
                             <Trash2 className="w-3 h-3" />

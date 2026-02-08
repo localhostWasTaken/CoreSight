@@ -7,7 +7,8 @@ import {
   BarChart3, 
   FolderKanban,
   LogOut,
-  Activity
+  Activity,
+  Briefcase
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
+  { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Activity', href: '/activity', icon: Activity },
 ];

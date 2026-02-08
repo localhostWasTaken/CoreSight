@@ -1,51 +1,93 @@
 @import "tailwindcss";
 
-/* Swiss Design System - CoreSight */
+/* Swiss Design System - CoreSight - Soft Peach Edition */
 
 @layer base {
   :root {
-    /* Swiss palette - clean, professional, high contrast */
-    --color-background: 250 250 250;
-    --color-surface: 255 255 255;
-    --color-surface-secondary: 245 245 247;
-    --color-border: 228 228 231;
-    --color-border-strong: 212 212 216;
-    
-    /* Text hierarchy */
-    --color-text-primary: 24 24 27;
-    --color-text-secondary: 82 82 91;
-    --color-text-tertiary: 161 161 170;
-    
-    /* Accent colors - minimal, purposeful */
-    --color-accent: 24 24 27;
-    --color-accent-hover: 39 39 42;
-    --color-success: 34 197 94;
-    --color-warning: 234 179 8;
-    --color-error: 239 68 68;
-    --color-info: 59 130 246;
-    
+    /* Soft Peach Palette - warm, calming, professional */
+    --color-background: 254 250 248;
+    --color-surface: 255 253 252;
+    --color-surface-secondary: 253 247 244;
+    --color-border: 243 228 220;
+    --color-border-strong: 235 215 205;
+
+    /* Text hierarchy - warm neutrals */
+    --color-text-primary: 58 50 47;
+    --color-text-secondary: 115 100 93;
+    --color-text-tertiary: 168 152 143;
+
+    /* Accent colors - warm, purposeful */
+    --color-accent: 198 115 89;
+    --color-accent-hover: 178 95 69;
+    --color-success: 120 180 120;
+    --color-warning: 218 175 95;
+    --color-error: 205 100 100;
+    --color-info: 135 165 200;
+
+    /* Graph paper grid colors */
+    --color-grid-line: 240 225 218;
+    --color-grid-line-strong: 230 210 200;
+
     /* Spacing system (8px grid) */
     --spacing-unit: 0.5rem;
   }
-  
+
+  /* Graph paper background pattern */
   body {
-    @apply bg-[rgb(var(--color-background))] text-[rgb(var(--color-text-primary))];
+    @apply text-[rgb(var(--color-text-primary))];
     @apply font-sans antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.6;
     font-size: 15px;
     margin: 0;
     min-height: 100vh;
+
+    /* Soft peach background with graph paper checks */
+    background-color: rgb(var(--color-background));
+    background-image:
+      linear-gradient(rgb(var(--color-grid-line)) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--color-grid-line)) 1px, transparent 1px),
+      linear-gradient(rgb(var(--color-grid-line-strong)) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--color-grid-line-strong)) 1px, transparent 1px);
+    background-size:
+      20px 20px,
+      20px 20px,
+      100px 100px,
+      100px 100px;
+    background-position:
+      -1px -1px,
+      -1px -1px,
+      -1px -1px,
+      -1px -1px;
   }
-  
+
   /* Strong typographic hierarchy */
-  h1 { @apply text-3xl font-bold tracking-tight mb-6; }
-  h2 { @apply text-2xl font-bold tracking-tight mb-4; }
-  h3 { @apply text-xl font-semibold tracking-tight mb-3; }
-  h4 { @apply text-lg font-semibold tracking-tight mb-2; }
-  h5 { @apply text-base font-semibold tracking-tight mb-2; }
-  h6 { @apply text-sm font-semibold tracking-tight mb-2; }
-  
+  h1 {
+    @apply text-3xl font-semibold tracking-tight mb-6;
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold tracking-tight mb-4;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    @apply text-xl font-medium tracking-tight mb-3;
+  }
+
+  h4 {
+    @apply text-lg font-medium tracking-tight mb-2;
+  }
+
+  h5 {
+    @apply text-base font-medium tracking-tight mb-2;
+  }
+
+  h6 {
+    @apply text-sm font-medium tracking-tight mb-2;
+  }
+
   /* Clean link style */
   a {
     @apply text-[rgb(var(--color-accent))] underline decoration-1 underline-offset-2;
@@ -54,126 +96,181 @@
 }
 
 @layer components {
-  /* Card system */
+
+  /* Card system - soft shadows, warm feel */
   .card {
     @apply bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))];
-    @apply rounded-none shadow-sm;
+    @apply rounded-sm;
+    box-shadow: 0 1px 3px rgba(198, 115, 89, 0.06), 0 1px 2px rgba(198, 115, 89, 0.04);
   }
-  
+
   .card-header {
     @apply border-b border-[rgb(var(--color-border))] p-6;
+    @apply bg-[rgb(var(--color-surface-secondary))];
   }
-  
+
   .card-body {
     @apply p-6;
   }
-  
-  /* Button system - minimal, clear */
+
+  /* Button system - soft, warm aesthetic */
   .btn {
-    @apply px-6 py-2.5 font-medium tracking-tight;
-    @apply rounded-none border transition-all;
+    @apply px-5 py-2 font-medium tracking-tight;
+    @apply rounded-sm border transition-all duration-200;
     @apply inline-flex items-center justify-center gap-2;
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  
+
   .btn-primary {
     @apply bg-[rgb(var(--color-accent))] text-white border-[rgb(var(--color-accent))];
     @apply hover:bg-[rgb(var(--color-accent-hover))] hover:border-[rgb(var(--color-accent-hover))];
+    box-shadow: 0 1px 2px rgba(198, 115, 89, 0.15);
   }
-  
+
   .btn-secondary {
     @apply bg-[rgb(var(--color-surface))] text-[rgb(var(--color-text-primary))];
     @apply border-[rgb(var(--color-border-strong))];
-    @apply hover:bg-[rgb(var(--color-surface-secondary))];
+    @apply hover:bg-[rgb(var(--color-surface-secondary))] hover:border-[rgb(var(--color-accent))];
   }
-  
+
   .btn-ghost {
-    @apply border-transparent hover:bg-[rgb(var(--color-surface-secondary))];
+    @apply border-transparent text-[rgb(var(--color-text-secondary))];
+    @apply hover:bg-[rgb(var(--color-surface-secondary))] hover:text-[rgb(var(--color-accent))];
   }
-  
-  /* Input system */
+
+  /* Input system - warm borders */
   .input {
-    @apply w-full px-4 py-2.5 rounded-none;
+    @apply w-full px-4 py-2.5 rounded-sm;
     @apply bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))];
     @apply text-[rgb(var(--color-text-primary))] placeholder:text-[rgb(var(--color-text-tertiary))];
-    @apply focus:outline-none focus:border-[rgb(var(--color-accent))] focus:ring-1 focus:ring-[rgb(var(--color-accent))];
-    @apply transition-all;
+    @apply focus:outline-none focus:border-[rgb(var(--color-accent))];
+    @apply transition-all duration-200;
   }
-  
+
+  .input:focus {
+    box-shadow: 0 0 0 3px rgba(198, 115, 89, 0.15);
+  }
+
   .label {
     @apply block text-sm font-medium text-[rgb(var(--color-text-secondary))] mb-2;
   }
-  
-  /* Table system */
+
+  /* Table system - soft grid styling */
   .table {
     @apply w-full border-collapse;
   }
-  
+
   .table th {
     @apply text-left text-xs font-semibold tracking-wider uppercase;
     @apply text-[rgb(var(--color-text-secondary))] bg-[rgb(var(--color-surface-secondary))];
     @apply border-y border-[rgb(var(--color-border))] px-4 py-3;
   }
-  
+
   .table td {
     @apply border-b border-[rgb(var(--color-border))] px-4 py-4;
     @apply text-sm text-[rgb(var(--color-text-primary))];
   }
-  
+
   .table tbody tr {
-    @apply hover:bg-[rgb(var(--color-surface-secondary))] transition-colors;
+    @apply hover:bg-[rgb(var(--color-surface-secondary))] transition-colors duration-150;
   }
-  
-  /* Badge system */
+
+  /* Badge system - warm tones */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-none;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-sm;
     @apply text-xs font-medium tracking-tight;
     @apply border;
   }
-  
+
   .badge-success {
-    @apply bg-green-50 text-green-700 border-green-200;
+    @apply bg-emerald-50 text-emerald-700 border-emerald-200;
   }
-  
+
   .badge-warning {
-    @apply bg-yellow-50 text-yellow-700 border-yellow-200;
+    @apply bg-amber-50 text-amber-700 border-amber-200;
   }
-  
+
   .badge-error {
-    @apply bg-red-50 text-red-700 border-red-200;
+    @apply bg-rose-50 text-rose-700 border-rose-200;
   }
-  
+
   .badge-info {
-    @apply bg-blue-50 text-blue-700 border-blue-200;
+    @apply bg-sky-50 text-sky-700 border-sky-200;
   }
-  
+
   .badge-neutral {
-    @apply bg-gray-50 text-gray-700 border-gray-200;
+    @apply bg-[rgb(var(--color-surface-secondary))] text-[rgb(var(--color-text-secondary))] border-[rgb(var(--color-border))];
   }
-  
+
   /* Grid system - 8px baseline */
   .grid-container {
     @apply grid gap-6;
   }
-  
-  /* Stat card */
+
+  /* Stat card - matches warm aesthetic */
   .stat-card {
     @apply bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))];
-    @apply rounded-none shadow-sm;
-    @apply p-6;
+    @apply rounded-sm p-6;
+    box-shadow: 0 1px 3px rgba(198, 115, 89, 0.06), 0 1px 2px rgba(198, 115, 89, 0.04);
   }
-  
+
   .stat-label {
     @apply text-xs font-medium tracking-wider uppercase;
     @apply text-[rgb(var(--color-text-secondary))] mb-1;
   }
-  
+
   .stat-value {
-    @apply text-3xl font-bold tracking-tight;
+    @apply text-3xl font-semibold tracking-tight;
     @apply text-[rgb(var(--color-text-primary))];
   }
-  
+
   .stat-change {
     @apply text-sm font-medium mt-2;
+  }
+
+  /* Progress bar - warm accent */
+  .progress {
+    @apply h-2 rounded-full bg-[rgb(var(--color-surface-secondary))] overflow-hidden;
+  }
+
+  .progress-bar {
+    @apply h-full bg-[rgb(var(--color-accent))] rounded-full;
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* Sidebar styling */
+  .sidebar {
+    @apply bg-[rgb(var(--color-surface))] border-r border-[rgb(var(--color-border))];
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-sm;
+    @apply text-[rgb(var(--color-text-secondary))] text-sm font-medium;
+    @apply transition-all duration-150;
+    @apply hover:bg-[rgb(var(--color-surface-secondary))] hover:text-[rgb(var(--color-text-primary))];
+  }
+
+  .sidebar-item.active {
+    @apply bg-[rgb(var(--color-surface-secondary))] text-[rgb(var(--color-accent))];
+    @apply border-l-2 border-[rgb(var(--color-accent))];
+    margin-left: -2px;
+    padding-left: calc(1rem + 2px);
+  }
+
+  /* Tooltip */
+  .tooltip {
+    @apply bg-[rgb(var(--color-text-primary))] text-white text-xs px-2 py-1 rounded-sm;
+    box-shadow: 0 2px 8px rgba(58, 50, 47, 0.15);
+  }
+
+  /* Divider */
+  .divider {
+    @apply border-t border-[rgb(var(--color-border))] my-4;
+  }
+
+  /* Section header */
+  .section-header {
+    @apply text-xs font-semibold tracking-wider uppercase;
+    @apply text-[rgb(var(--color-text-tertiary))] mb-4 px-1;
   }
 }

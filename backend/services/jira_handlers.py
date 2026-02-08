@@ -64,18 +64,28 @@ async def handle_issue_created(webhook_data: Dict[str, Any], db: DatabaseManager
     # Map Jira status to our TaskStatus
     task_status = map_jira_status(status_name)
     
-    # Step 1: Get or create project
-    project = await db.find_one("projects", {"name": project_name})
+    # Step 1: Get or create project (prioritize jira_space_id lookup)
+    project = None
+    if project_id_jira:
+        project = await db.find_one("projects", {"jira_space_id": project_id_jira})
     
     if not project:
-        print(f"Creating new project: {project_name}")
+        project = await db.find_one("projects", {"name": project_name})
+    
+    if not project:
+        print(f"Creating new project: {project_name} (Jira ID: {project_id_jira})")
         project_id = await db.insert_one("projects", {
             "name": project_name,
+            "jira_space_id": project_id_jira,
             "repo_url": None,
             "total_budget": 0.0,
         })
         project = await db.find_one("projects", {"_id": project_id})
     else:
+        # Update existing project with jira_space_id if missing
+        if project_id_jira and not project.get("jira_space_id"):
+            await db.update_one("projects", {"_id": project["_id"]}, {"jira_space_id": project_id_jira})
+            project["jira_space_id"] = project_id_jira
         print(f"Using existing project: {project_name}")
     
     project_id_str = str(project["_id"])

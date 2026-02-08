@@ -1,5 +1,6 @@
 """
 Skill Extraction Functions for CoreSight
+Using Featherless AI (OpenAI-compatible)
 """
 
 import json
@@ -11,19 +12,10 @@ from .client import client, LLM_MODEL
 def extract_skills_from_task(task_title: str, task_description: Optional[str], project_name: str) -> List[str]:
     """
     Extract required skills from task description using LLM
-    
-    Args:
-        task_title: The task title
-        task_description: The task description (can be None)
-        project_name: The project name for context
-        
-    Returns:
-        List of skill strings
     """
     description = task_description or "No description provided"
     
-    prompt = f"""
-You are an expert technical recruiter analyzing a software development task.
+    prompt = f"""You are an expert technical recruiter analyzing a software development task.
 
 Project: {project_name}
 Task Title: {task_title}
@@ -45,17 +37,13 @@ Skills:"""
     try:
         response = client.chat.completions.create(
             model=LLM_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a technical skill extraction expert. Return only valid JSON arrays."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
         
-        content = response.model_dump()['choices'][0]['message']['content'].strip()
+        content = response.choices[0].message.content.strip()
         
         # Extract JSON array from response
-        # Handle cases where the model might add extra text
         start = content.find('[')
         end = content.rfind(']') + 1
         
@@ -99,6 +87,8 @@ def extract_skills_fallback(task_title: str, task_description: str) -> List[str]
         "frontend": "Frontend Development",
         "backend": "Backend Development",
         "database": "Database Design",
+        "redis": "Redis",
+        "caching": "Caching",
     }
     
     detected_skills = []

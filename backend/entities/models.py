@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional, Any, Dict
 from datetime import datetime
-from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
+from pydantic import BaseModel, Field, BeforeValidator, ConfigDict, model_validator
 from typing_extensions import Annotated
 
 # --- 1. THE UNIVERSAL ID FIX ---
@@ -51,6 +51,7 @@ class User(BaseModelId):
     hourly_rate: float = 50.0
     skills: List[str]
     work_profile_embeddings: List[float]
+    password_hash: Optional[str] = None
     
     # Maps Project ID -> Cumulative Hours Spent (The "Familiarity" Score)
     project_metrics: Dict[str, float] = Field(default_factory=dict)
@@ -58,8 +59,22 @@ class User(BaseModelId):
     github_username: Optional[str] = None
     jira_account_id: Optional[str] = None
 
+    @model_validator(mode='after')
+    def check_role_authentication_compliance(self):
+        # 1. Admins MUST have a password
+        if self.role == Role.ADMIN and not self.password_hash:
+            raise ValueError(f"User '{self.name}' is an ADMIN but has no password_hash. Admins require local authentication.")
+        
+        # 2. Employees MUST NOT have a password
+        if self.role == Role.EMPLOYEE and self.password_hash is not None:
+            raise ValueError(f"User '{self.name}' is an EMPLOYEE but has a password_hash. Employees should not store local passwords.")
+            
+        return self
+        
+
 class Project(BaseModelId):
     name: str
+    jira_space_id: Optional[str] = None
     repo_url: Optional[str] = None
     total_budget: float = 0.0
 
@@ -247,6 +262,7 @@ class JobRequisition(BaseModelId):
     
     # Status tracking
     status: JobPostingStatus = JobPostingStatus.PENDING
+    admin_approved: bool = False  # Requires admin approval before posting
     linkedin_job_id: Optional[str] = None     # After posting
     
     # Audit

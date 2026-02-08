@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -61,4 +61,18 @@ export const commitAPI = {
 export const issueAPI = {
   list: (params?: any) => api.get('/api/issues', { params }),
   get: (id: string) => api.get(`/api/issues/${id}`),
+};
+
+export const jobAPI = {
+  list: (params?: any) => api.get('/api/jobs/requisitions', { params }),
+  get: (id: string) => api.get(`/api/jobs/requisitions/${id}`),
+  update: (id: string, data: any) => api.patch(`/api/jobs/requisitions/${id}`, data),
+  post: (id: string) => api.post(`/api/jobs/requisitions/${id}/post`),
+  approve: (id: string) => api.post(`/api/jobs/requisitions/${id}/approve`),
+  delete: (id: string) => api.delete(`/api/jobs/requisitions/${id}`),
+};
+
+export const linkedinAPI = {
+  searchLocations: (query: string) => api.get('/api/linkedin/search/locations', { params: { query } }),
+  searchJobTitles: (query: string) => api.get('/api/linkedin/search/job-titles', { params: { query } }),
 };

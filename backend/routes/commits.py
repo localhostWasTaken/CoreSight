@@ -69,6 +69,8 @@ async def list_commits(
         service = CommitService(db)
         
         commits = await service.list_commits(user_id, repository)
+        # Sort by created_at descending (newest first)
+        commits.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         
         # Remove embeddings and diff from response
         result = []

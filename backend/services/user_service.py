@@ -70,8 +70,11 @@ class UserService:
         return await self.db.find_one("users", {"email": email})
     
     async def list_users(self, filters: Optional[Dict] = None) -> List[Dict[str, Any]]:
-        """List all users, optionally filtered"""
-        return await self.db.find_many("users", filters or {})
+        """List all employees (excludes admins)"""
+        query = {"role": "employee"}
+        if filters:
+            query.update(filters)
+        return await self.db.find_many("users", query)
     
     async def update_user(self, user_id: str, update_data: Dict[str, Any]) -> bool:
         """
@@ -141,6 +144,6 @@ async def get_user(db: DatabaseManager, user_id: str) -> Optional[Dict[str, Any]
 
 
 async def list_users(db: DatabaseManager) -> List[Dict[str, Any]]:
-    """List all users"""
+    """List all employees (excludes admins)"""
     service = UserService(db)
     return await service.list_users()
