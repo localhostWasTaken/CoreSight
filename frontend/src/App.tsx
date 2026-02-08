@@ -64,7 +64,7 @@ function App() {
             }
           />
           <Route
-            path="/tasks"
+            path="/project/:projectId/tasks"
             element={
               <ProtectedRoute>
                 <Tasks />

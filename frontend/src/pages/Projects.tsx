@@ -240,9 +240,13 @@ export default function Projects() {
                       </div>
 
                       <div className="flex gap-2">
-                        <button className="btn btn-secondary flex-1 text-xs py-2">
+                        <Link
+                          to={`/project/${getProjectId(project)}/tasks`}
+                          className="btn btn-secondary flex-1 text-xs py-2 no-underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           View Tasks
-                        </button>
+                        </Link>
                         <button className="btn btn-primary flex-1 text-xs py-2">
                           Edit Project
                         </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CheckSquare, Clock, AlertCircle, CheckCircle, Circle } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { CheckSquare, Clock, AlertCircle, CheckCircle, Circle, ArrowLeft } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { taskAPI } from '../lib/api';
 
@@ -18,6 +19,8 @@ interface Task {
 }
 
 export default function Tasks() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -25,12 +28,18 @@ export default function Tasks() {
 
   useEffect(() => {
     loadTasks();
-  }, [filter]);
+  }, [filter, projectId]);
 
   const loadTasks = async () => {
     try {
-      const params = filter !== 'all' ? { status: filter } : undefined;
-      const response = await taskAPI.list(params);
+      const params: any = {};
+      if (projectId) {
+        params.project_id = projectId;
+      }
+      if (filter !== 'all') {
+        params.status = filter;
+      }
+      const response = await taskAPI.list(Object.keys(params).length > 0 ? params : undefined);
       setTasks(response.data);
     } catch (err) {
       console.error('Failed to load tasks:', err);
@@ -106,10 +115,20 @@ export default function Tasks() {
       <div className="max-w-7xl">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Tasks</h1>
-          <p className="text-[rgb(var(--color-text-secondary))]">
-            Track and manage project tasks and assignments
-          </p>
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => navigate('/projects')}
+              className="btn btn-ghost p-2 hover:bg-[rgb(var(--color-surface-secondary))]"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight mb-2">Project Tasks</h1>
+              <p className="text-[rgb(var(--color-text-secondary))]">
+                Track and manage tasks for this project
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
