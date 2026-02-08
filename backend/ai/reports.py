@@ -17,7 +17,7 @@ async def generate_no_match_report(
 ) -> Dict[str, any]:
     """
     Generate a critical report when no suitable users are found.
-    Also generates job posting data for LinkedIn.
+    Also generates job posting data for the careers page.
     """
     desc = task_description or "No description provided"
     
@@ -44,7 +44,7 @@ Return ONLY a valid JSON object with this structure:
 }}
 
 IMPORTANT: 
-- The job description must be valid HTML suitable for LinkedIn job posting
+- The job description must be valid HTML
 - Keep it professional and engaging
 - Focus on the specific skills needed for the task"""
     

@@ -17,10 +17,8 @@ router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 
 # Request models
 class JobRequisitionUpdate(BaseModel):
-    linkedin_job_title_id: Optional[str] = None
-    linkedin_job_title_text: Optional[str] = None
-    linkedin_location_id: Optional[str] = None
-    linkedin_location_text: Optional[str] = None
+    title: Optional[str] = None           # Override suggested_title
+    location: Optional[str] = None        # Job location (e.g., "Remote", "New York")
     workplace_type: Optional[str] = None
     employment_type: Optional[str] = None
 
@@ -28,7 +26,7 @@ class JobRequisitionUpdate(BaseModel):
 # Endpoints
 @router.get("/requisitions", response_model=List[dict])
 async def list_job_requisitions(
-    status: Optional[str] = Query(None, description="Filter by status: pending, ready, posted, closed")
+    status: Optional[str] = Query(None, description="Filter by status: pending, approved, closed")
 ):
     """
     List all job requisitions.
@@ -69,13 +67,13 @@ async def get_job_requisition(requisition_id: str):
 @router.patch("/requisitions/{requisition_id}", response_model=dict)
 async def update_job_requisition(requisition_id: str, update: JobRequisitionUpdate):
     """
-    Update a job requisition with LinkedIn search parameters.
+    Update a job requisition.
     
-    Use /api/linkedin/search/locations and /api/linkedin/search/job-titles
-    to find the correct IDs for the LinkedIn fields.
-    
-    Once both linkedin_job_title_id and linkedin_location_id are set,
-    the status will automatically change to 'ready'.
+    Admin can update:
+    - title: Override the LLM-suggested job title
+    - location: Set job location (e.g., "Remote", "San Francisco, CA")
+    - workplace_type: ON_SITE, REMOTE, HYBRID
+    - employment_type: FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
     """
     try:
         db = get_db()
@@ -103,40 +101,12 @@ async def update_job_requisition(requisition_id: str, update: JobRequisitionUpda
         raise HTTPException(status_code=503, detail=str(e))
 
 
-@router.post("/requisitions/{requisition_id}/post", response_model=dict)
-async def post_job_to_linkedin(requisition_id: str):
-    """
-    Post a job requisition to LinkedIn.
-    
-    The requisition must have status 'ready' (both LinkedIn job title
-    and location must be set).
-    """
-    try:
-        db = get_db()
-        service = JobService(db)
-        
-        result = await service.post_job_to_linkedin(requisition_id)
-        
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error"))
-        
-        return {
-            "message": "Job posted to LinkedIn successfully",
-            "job_id": result.get("job_id"),
-            "status": result.get("status")
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-
-
 @router.post("/requisitions/{requisition_id}/approve", response_model=dict)
 async def approve_job_requisition(requisition_id: str):
     """
-    Approve a job requisition for posting.
+    Approve a job requisition.
     
-    Admin must approve a requisition before it can be posted to LinkedIn.
+    Once approved, the job will be visible on the public careers page.
     """
     try:
         db = get_db()
@@ -147,7 +117,7 @@ async def approve_job_requisition(requisition_id: str):
         if not success:
             raise HTTPException(status_code=404, detail="Job requisition not found")
         
-        return {"message": "Job requisition approved successfully"}
+        return {"message": "Job requisition approved - now visible on careers page"}
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 

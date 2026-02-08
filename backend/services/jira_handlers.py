@@ -424,14 +424,11 @@ async def create_job_requisition(
         "suggested_title": report.get("suggested_job_title", f"Developer - {required_skills[0]}"),
         "description": report.get("suggested_job_description", ""),
         "required_skills": required_skills,
-        "linkedin_job_title_id": None,
-        "linkedin_job_title_text": None,
-        "linkedin_location_id": None,
-        "linkedin_location_text": None,
+        "location": None,
         "workplace_type": "ON_SITE",
         "employment_type": "FULL_TIME",
         "status": "pending",
-        "linkedin_job_id": None,
+        "admin_approved": False,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
         "created_by": "system"
@@ -439,7 +436,6 @@ async def create_job_requisition(
     
     requisition_id = await db.insert_one("job_requisitions", requisition_doc)
     print(f"✅ JobRequisition created: {requisition_id}")
-    print(f"   Next: User must fill LinkedIn fields via /api/jobs/requisitions/{requisition_id}")
+    print(f"   Next: Admin can update via /api/jobs/requisitions/{requisition_id} and approve")
     
     return requisition_id
-

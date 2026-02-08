@@ -1,7 +1,7 @@
 """
 Job Service for CoreSight
 
-Handles job requisition management and LinkedIn job posting.
+Handles job requisition management.
 """
 
 from typing import Dict, List, Optional, Any
@@ -9,12 +9,6 @@ from datetime import datetime
 from bson import ObjectId
 
 from utils.database import DatabaseManager
-from .linkedin_service import (
-    UnipileClient,
-    get_unipile_client,
-    WorkplaceType,
-    EmploymentType,
-)
 
 
 class JobService:
@@ -22,7 +16,6 @@ class JobService:
     
     def __init__(self, db: DatabaseManager):
         self.db = db
-        self.linkedin_client = get_unipile_client()
     
     async def create_job_requisition(
         self,
@@ -30,6 +23,7 @@ class JobService:
         suggested_title: str,
         description: str,
         required_skills: List[str],
+        location: Optional[str] = None,
         created_by: str = "system"
     ) -> Dict[str, Any]:
         """
@@ -40,6 +34,7 @@ class JobService:
             suggested_title: LLM-suggested job title
             description: Job description (HTML)
             required_skills: List of required skills
+            location: Job location (optional)
             created_by: Who created this requisition
             
         Returns:
@@ -52,14 +47,11 @@ class JobService:
             "suggested_title": suggested_title,
             "description": description,
             "required_skills": required_skills,
-            "linkedin_job_title_id": None,
-            "linkedin_job_title_text": None,
-            "linkedin_location_id": None,
-            "linkedin_location_text": None,
+            "location": location,
             "workplace_type": "ON_SITE",
             "employment_type": "FULL_TIME",
             "status": "pending",
-            "linkedin_job_id": None,
+            "admin_approved": False,
             "created_at": now,
             "updated_at": now,
             "created_by": created_by,
@@ -81,7 +73,7 @@ class JobService:
         """List job requisitions, optionally filtered by status (comma-separated for multiple)"""
         filters = {}
         if status:
-            # Support comma-separated statuses like "ready,posted"
+            # Support comma-separated statuses like "pending,approved"
             statuses = [s.strip() for s in status.split(',')]
             if len(statuses) == 1:
                 filters["status"] = statuses[0]
@@ -99,16 +91,16 @@ class JobService:
         
         Args:
             requisition_id: Requisition ID
-            update_data: Fields to update
+            update_data: Fields to update (title, location, workplace_type, employment_type)
             
         Returns:
             True if updated
         """
         update_data["updated_at"] = datetime.utcnow()
         
-        # Check if requisition is ready to post
-        if update_data.get("linkedin_job_title_id") and update_data.get("linkedin_location_id"):
-            update_data["status"] = "ready"
+        # Handle title update - maps to suggested_title field
+        if "title" in update_data:
+            update_data["suggested_title"] = update_data.pop("title")
         
         return await self.db.update_one(
             "job_requisitions",
@@ -116,65 +108,11 @@ class JobService:
             update_data
         )
     
-    async def post_job_to_linkedin(self, requisition_id: str) -> Dict[str, Any]:
-        """
-        Post a job requisition to LinkedIn.
-        
-        Args:
-            requisition_id: Requisition ID to post
-            
-        Returns:
-            Result with job_id and status
-        """
-        requisition = await self.get_job_requisition(requisition_id)
-        if not requisition:
-            raise ValueError("Job requisition not found")
-        
-        # Validate required fields
-        if not requisition.get("linkedin_job_title_id"):
-            raise ValueError("LinkedIn job title not selected")
-        if not requisition.get("linkedin_location_id"):
-            raise ValueError("LinkedIn location not selected")
-        
-        # Create job posting on LinkedIn
-        try:
-            workplace_type = WorkplaceType(requisition.get("workplace_type", "ON_SITE"))
-            employment_type = EmploymentType(requisition.get("employment_type", "FULL_TIME"))
-            
-            result = await self.linkedin_client.create_job_posting(
-                job_title_id=requisition["linkedin_job_title_id"],
-                location_id=requisition["linkedin_location_id"],
-                description=requisition["description"],
-                workplace_type=workplace_type,
-                employment_type=employment_type,
-            )
-            
-            # Update requisition with LinkedIn job ID
-            await self.db.update_one(
-                "job_requisitions",
-                {"_id": ObjectId(requisition_id)},
-                {
-                    "linkedin_job_id": result.job_id,
-                    "status": "posted",
-                    "updated_at": datetime.utcnow(),
-                }
-            )
-            
-            return {
-                "success": True,
-                "job_id": result.job_id,
-                "status": "posted"
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
     async def approve_job_requisition(self, requisition_id: str) -> bool:
         """
         Approve a job requisition.
+        
+        Once approved, the job becomes visible on the public careers page.
         
         Args:
             requisition_id: Requisition ID to approve
@@ -191,6 +129,7 @@ class JobService:
             {"_id": ObjectId(requisition_id)},
             {
                 "admin_approved": True,
+                "status": "approved",
                 "updated_at": datetime.utcnow(),
             }
         )

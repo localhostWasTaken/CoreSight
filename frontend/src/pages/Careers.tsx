@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Briefcase, MapPin, Mail, Loader2, Building2, Clock, LogIn } from 'lucide-react';
+import { Briefcase, MapPin, Mail, Loader2, Building2, Clock } from 'lucide-react';
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -86,14 +85,6 @@ export default function Careers() {
                     <span className="text-[rgb(var(--color-text-tertiary))]">|</span>
                     <span className="text-sm font-medium text-[rgb(var(--color-text-secondary))]">Careers</span>
                 </div>
-                <div className="flex-1" />
-                <Link
-                    to="/login"
-                    className="btn btn-ghost text-sm no-underline"
-                >
-                    <LogIn className="w-4 h-4" />
-                    Admin Login
-                </Link>
             </header>
 
             {/* Main content - matching AdminLayout style */}

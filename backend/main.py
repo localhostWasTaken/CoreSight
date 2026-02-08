@@ -16,7 +16,7 @@ from utils.database import DatabaseManager
 import utils
 
 # Import routers from routes package
-from routes import users, tasks, projects, linkedin, jobs, webhooks, issues, commits, analytics, auth, careers
+from routes import users, tasks, projects, jobs, webhooks, issues, commits, analytics, auth, careers
 
 # Load environment variables
 load_dotenv()
@@ -88,7 +88,6 @@ app.include_router(auth.router)  # Auth first (no protection needed)
 app.include_router(users.router)
 app.include_router(tasks.router)
 app.include_router(projects.router)
-app.include_router(linkedin.router)
 app.include_router(jobs.router)
 app.include_router(webhooks.router)
 app.include_router(issues.router)

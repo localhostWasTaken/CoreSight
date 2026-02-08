@@ -213,32 +213,28 @@ class Commit(BaseModelId):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-# --- 5. JOB REQUISITION (for LinkedIn posting) ---
+# --- 5. JOB REQUISITION ---
 
 class JobPostingStatus(str, Enum):
-    PENDING = "pending"           # User needs to fill search fields
-    READY_TO_POST = "ready"       # All fields filled, ready for posting
-    POSTED = "posted"             # Posted to LinkedIn
+    PENDING = "pending"           # Awaiting admin approval
+    APPROVED = "approved"         # Approved and visible on careers page
     CLOSED = "closed"             # Job closed
 
 
 class JobRequisition(BaseModelId):
     """
-    Pending job posting created when no matching users found.
-    User must fill LinkedIn-specific fields via search API before posting.
+    Job posting created when no matching users found.
+    Admin must approve before it appears on public careers page.
     """
     task_id: Optional[PyObjectId] = None      # Related task that triggered this
     
-    # Core job info (from LLM analysis)
-    suggested_title: str                       # LLM-suggested job title
+    # Core job info (from LLM analysis, editable by admin)
+    suggested_title: str                       # LLM-suggested job title (admin can edit)
     description: str                           # LLM-generated description (HTML)
     required_skills: List[str]
     
-    # User-selected from search APIs (initially None)
-    linkedin_job_title_id: Optional[str] = None
-    linkedin_job_title_text: Optional[str] = None
-    linkedin_location_id: Optional[str] = None
-    linkedin_location_text: Optional[str] = None
+    # Job details (editable by admin)
+    location: Optional[str] = None            # Job location (e.g., "Remote", "New York, NY")
     
     # Job configuration
     workplace_type: str = "ON_SITE"           # ON_SITE, REMOTE, HYBRID
@@ -246,8 +242,7 @@ class JobRequisition(BaseModelId):
     
     # Status tracking
     status: JobPostingStatus = JobPostingStatus.PENDING
-    admin_approved: bool = False  # Requires admin approval before posting
-    linkedin_job_id: Optional[str] = None     # After posting
+    admin_approved: bool = False  # Requires admin approval before showing on careers page
     
     # Audit
     created_at: datetime

@@ -39,7 +39,7 @@ async def get_public_careers():
                 "title": job.get("suggested_title", ""),
                 "description": job.get("description", ""),
                 "required_skills": job.get("required_skills", []),
-                "location": job.get("linkedin_location_text", ""),
+                "location": job.get("location", ""),
                 "workplace_type": job.get("workplace_type", "ON_SITE"),
                 "employment_type": job.get("employment_type", "FULL_TIME"),
             })
