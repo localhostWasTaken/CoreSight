@@ -23,7 +23,7 @@ export const userAPI = {
   list: () => api.get('/api/users'),
   get: (id: string) => api.get(`/api/users/${id}`),
   create: (data: any) => api.post('/api/users', data),
-  update: (id: string, data: any) => api.put(`/api/users/${id}`, data),
+  update: (id: string, data: any) => api.patch(`/api/users/${id}`, data),
   delete: (id: string) => api.delete(`/api/users/${id}`),
 };
 
@@ -39,7 +39,7 @@ export const projectAPI = {
   list: () => api.get('/api/projects'),
   get: (id: string) => api.get(`/api/projects/${id}`),
   create: (data: any) => api.post('/api/projects', data),
-  update: (id: string, data: any) => api.put(`/api/projects/${id}`, data),
+  update: (id: string, data: any) => api.patch(`/api/projects/${id}`, data),
   delete: (id: string) => api.delete(`/api/projects/${id}`),
 };
 

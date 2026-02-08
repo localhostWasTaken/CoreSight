@@ -878,6 +878,33 @@ class AnalyticsService:
         return recommendations
 
 
+    @staticmethod
+    def _compute_commit_value_score(commit: Dict[str, Any]) -> float:
+        """
+        Heuristic value score (0-100) for a commit based on observable metrics.
+
+        Factors:
+        - Code volume  (lines added/deleted)      → up to 35 pts
+        - Breadth      (files changed)             → up to 20 pts
+        - Skill signal (extracted skills count)    → up to 20 pts
+        - Tracked work (linked to a Jira task)     → 15 pts
+        - Growth       (triggered profile update)  → 10 pts
+        """
+        lines_added   = commit.get("lines_added", 0) or 0
+        lines_deleted = commit.get("lines_deleted", 0) or 0
+        files_changed = commit.get("files_changed", 0) or 0
+        skills        = commit.get("extracted_skills") or []
+        is_tracked    = commit.get("is_jira_tracked", False)
+        profile_bump  = commit.get("triggered_profile_update", False)
+
+        code_score    = min(35, lines_added * 0.3 + lines_deleted * 0.1)
+        file_score    = min(20, files_changed * 5)
+        skill_score   = min(20, len(skills) * 5)
+        track_bonus   = 15 if is_tracked else 0
+        profile_bonus = 10 if profile_bump else 0
+
+        return round(min(100, code_score + file_score + skill_score + track_bonus + profile_bonus), 1)
+
     async def get_developer_value_analysis(self, user_id: str, days: int = 30) -> Dict[str, Any]:
         """
         Calculate developer ROI: Cost vs. Value
@@ -890,8 +917,6 @@ class AnalyticsService:
         hourly_rate = user.get("hourly_rate", 50.0)
         
         # 2. Calculate Cost (Time Spent)
-        # For now, estimate based on commits if WorkSession not fully utilized
-        # Assumption: 1 commit ~ 2 hours (heuristic if no time tracking)
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
         commits = await self.db.find_many("commits", {
@@ -899,38 +924,35 @@ class AnalyticsService:
             "timestamp": {"$gte": cutoff_date}
         })
         
-        # In a real system, we'd query WorkSessions. Here we use a heuristic or actual if available.
-        # Let's try to simulate "Hours" based on activity spread
-        total_hours_estimated = len(commits) * 2.5 # 2.5 hours per commit avg
+        # Calculate hours based on lines changed (100 lines ≈ 1 hour)
+        total_lines = sum(
+            (commit.get("lines_added", 0) or 0) + (commit.get("lines_deleted", 0) or 0)
+            for commit in commits
+        )
+        total_hours_estimated = max(1, round(total_lines / 100, 1))  # At least 1 hour if there are commits
         total_cost = total_hours_estimated * hourly_rate
         
-        # 3. Calculate Value (LLM Scores)
+        # 3. Calculate Value — use stored value_score or compute heuristic
         total_value_score = 0
         value_breakdown = []
         
         for commit in commits:
-            score = commit.get("value_score", 0)
+            score = commit.get("value_score") or 0
             if score == 0:
-                # If not yet scored, we might want to trigger scoring in background?
-                # For now, just count as 0 or default
-                pass
-            
+                score = self._compute_commit_value_score(commit)
+
             total_value_score += score
             
-            if score > 70: # High value highlights
+            if score > 40:  # Noteworthy commits
                 value_breakdown.append({
                     "hash": commit.get("commit_hash", "")[:7],
                     "message": commit.get("commit_message", ""),
                     "score": score,
                     "complexity": commit.get("complexity", "unknown"),
-                    "reasoning": commit.get("impact_reasoning", "High impact detected")
+                    "reasoning": commit.get("impact_reasoning", "Heuristic: high code volume / breadth")
                 })
         
-        # 4. ROI Metric
-        # Value Score is abstract points. Cost is $.
-        # We need a baseline. Let's say 1 Value Point is worth $X to the business?
-        # Or just return raw metrics for the UI to display "Cost: $5000, Value Points: 450"
-        
+        # 4. ROI Metric — value points per $100 spent
         return {
             "user_id": user_id,
             "period_days": days,
@@ -939,6 +961,6 @@ class AnalyticsService:
             "estimated_hours": total_hours_estimated,
             "total_value_score": round(total_value_score, 1),
             "commit_count": len(commits),
-            "roi_ratio": round(total_value_score / (total_cost / 100), 2) if total_cost > 0 else 0, # Points per $100 spent
+            "roi_ratio": round(total_value_score / (total_cost / 100), 2) if total_cost > 0 else 0,
             "high_impact_commits": sorted(value_breakdown, key=lambda x: x['score'], reverse=True)[:5]
         }

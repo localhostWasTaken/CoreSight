@@ -10,8 +10,7 @@ import {
   ArrowLeft,
   Activity,
   DollarSign,
-  BrainCircuit,
-  Target
+  BrainCircuit
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -57,8 +56,8 @@ interface CommitActivity {
 interface ValueAnalysis {
   hourly_rate: number;
   total_cost: number;
-  total_value_score: number;
-  roi_ratio: number;
+  estimated_hours: number;
+  commit_count: number;
   high_impact_commits: Array<{
     hash: string;
     message: string;
@@ -251,58 +250,16 @@ export default function UserAnalytics() {
               </div>
             </div>
 
-            {/* Cost & Value Analysis */}
+            {/* Cost Estimate */}
             {valueData && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {/* Cost Summary Card */}
-                <div className="card">
-                  <div className="card-body text-center">
-                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[rgba(198,115,89,0.12)] flex items-center justify-center">
-                      <DollarSign className="w-6 h-6 text-[rgb(var(--color-accent))]" />
-                    </div>
+              <div className="card mb-8">
+                <div className="card-body flex items-center gap-6">
+                  <div className="w-12 h-12 rounded-full bg-[rgba(198,115,89,0.12)] flex items-center justify-center shrink-0">
+                    <DollarSign className="w-6 h-6 text-[rgb(var(--color-accent))]" />
+                  </div>
+                  <div className="flex-1">
                     <div className="stat-label">Estimated Cost (30d)</div>
-                    <div className="stat-value">${valueData.total_cost.toLocaleString()}</div>
-                    <div className="text-xs text-[rgb(var(--color-text-tertiary))] mt-2">
-                      @ ${valueData.hourly_rate}/hr
-                    </div>
-                  </div>
-                </div>
-
-                {/* Value Score Card */}
-                <div className="card">
-                  <div className="card-body text-center">
-                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[rgba(120,180,120,0.12)] flex items-center justify-center">
-                      <BrainCircuit className="w-6 h-6 text-[rgb(var(--color-success))]" />
-                    </div>
-                    <div className="stat-label">Value Score</div>
-                    <div className="stat-value">{valueData.total_value_score}</div>
-                    <div className="text-xs text-[rgb(var(--color-text-tertiary))] mt-2">
-                      AI-assessed impact
-                    </div>
-                  </div>
-                </div>
-
-                {/* ROI Card */}
-                <div className="card">
-                  <div className="card-body text-center">
-                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[rgba(135,165,200,0.12)] flex items-center justify-center">
-                      <Target className="w-6 h-6 text-[rgb(var(--color-info))]" />
-                    </div>
-                    <div className="stat-label">ROI Ratio</div>
-                    <div className={`stat-value ${valueData.roi_ratio > 1.5 ? 'text-[rgb(var(--color-success))]' : ''}`}>
-                      {valueData.roi_ratio}x
-                    </div>
-                    <div className="mt-3">
-                      <div className="progress">
-                        <div 
-                          className={`progress-bar ${valueData.roi_ratio > 1.5 ? 'bg-[rgb(var(--color-success))]' : ''}`} 
-                          style={{ width: `${Math.min(valueData.roi_ratio * 30, 100)}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-[rgb(var(--color-text-tertiary))] mt-2">
-                        &gt;1.5x = high value delivery
-                      </div>
-                    </div>
+                    <div className="stat-value">${valueData.total_cost.toLocaleString()}</div> 
                   </div>
                 </div>
               </div>
