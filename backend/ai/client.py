@@ -23,12 +23,12 @@ if featherless_api_key:
             base_url=featherless_base_url,
             api_key=featherless_api_key,
         )
-        print("✅ Featherless client initialized for LLM (Llama 3.1)")
+        print("[INFO] Featherless client initialized for LLM (Llama 3.1)")
     except Exception as e:
-        print(f"⚠️  Failed to initialize Featherless client: {e}")
+        print(f"[WARN] Failed to initialize Featherless client: {e}")
 
 if not client:
-    print("⚠️  WARNING: No LLM client configured. AI features will not work.")
+    print("[WARN] WARNING: No LLM client configured. AI features will not work.")
 
 # Model configuration
 LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")

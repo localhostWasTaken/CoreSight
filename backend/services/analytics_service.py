@@ -687,3 +687,61 @@ class AnalyticsService:
             "details": categories
         }
 
+
+    # ============================================================================
+    # TOP CONTRIBUTORS
+    # ============================================================================
+    
+    async def get_top_contributors(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Get top contributors based on commit activity and impact.
+        """
+        # Aggregate commits by user_id
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$user_id",
+                    "total_commits": {"$sum": 1},
+                    "total_lines_added": {"$sum": "$lines_added"},
+                    "total_lines_deleted": {"$sum": "$lines_deleted"},
+                    "last_active": {"$max": "$created_at"}
+                }
+            },
+            {
+                "$sort": {"total_commits": -1}
+            },
+            {
+                "$limit": limit
+            }
+        ]
+        
+        agg_results = await self.db.aggregate("commits", pipeline)
+        
+        contributors = []
+        for res in agg_results:
+            user_id = res.get("_id")
+            if not user_id:
+                continue
+                
+            # Fetch user details
+            user = await self.db.find_one("users", {"_id": ObjectId(user_id)}) if isinstance(user_id, ObjectId) else None
+            
+            if not user:
+                # Try to map string ID if ObjectId failed or wasn't ObjectId
+                try:
+                    user = await self.db.find_one("users", {"_id": ObjectId(str(user_id))})
+                except:
+                    pass
+            
+            name = user.get("name", "Unknown User") if user else "Unknown User"
+            
+            contributors.append({
+                "user_id": str(user_id),
+                "name": name,
+                "commit_count": res.get("total_commits", 0),
+                "lines_added": res.get("total_lines_added", 0),
+                "lines_deleted": res.get("total_lines_deleted", 0),
+                "last_active": res.get("last_active")
+            })
+            
+        return contributors

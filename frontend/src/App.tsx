@@ -10,6 +10,7 @@ import Projects from './pages/Projects';
 import Analytics from './pages/Analytics';
 import Activity from './pages/Activity';
 import JobRequisitions from './pages/JobRequisitions';
+import UserAnalytics from './pages/UserAnalytics';
 import Careers from './pages/Careers';
 
 function App() {

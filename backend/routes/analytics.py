@@ -377,3 +377,23 @@ async def get_work_type_breakdown():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get work type breakdown: {str(e)}"
         )
+
+@router.get(
+    "/team/top_contributors",
+    summary="Get Top Contributors",
+    description="Get top contributors based on commit activity"
+)
+async def get_top_contributors(
+    limit: int = Query(5, ge=1, le=20, description="Number of contributors to return")
+):
+    """Get top contributors list."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_top_contributors(limit=limit)
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get top contributors: {str(e)}"
+        )

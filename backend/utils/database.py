@@ -35,6 +35,11 @@ class DatabaseManager:
         collection = self.get_collection(collection_name)
         cursor = collection.find(filter_dict, session=session)
         return await cursor.to_list(length=None)
+
+    async def aggregate(self, collection_name: str, pipeline: list, session=None) -> list[Dict[str, Any]]:
+        collection = self.get_collection(collection_name)
+        cursor = collection.aggregate(pipeline, session=session)
+        return await cursor.to_list(length=None)
     
     async def insert_one(self, collection_name: str, document: Dict[str, Any], session=None) -> ObjectId:
         collection = self.get_collection(collection_name)

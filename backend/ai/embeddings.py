@@ -8,7 +8,7 @@ import hashlib
 from typing import List
 
 # Embedding dimension - consistent for all embeddings
-EMBEDDING_DIM = 768
+EMBEDDING_DIM = 1536
 
 
 def generate_embedding(text: str) -> List[float]:
