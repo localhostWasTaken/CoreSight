@@ -27,12 +27,8 @@ class TaskStatus(str, Enum):
 
 class ActivityType(str, Enum):
     COMMIT = "commit"
-    PR_OPEN = "pr_open"
-    PR_REVIEW = "pr_review"
-    SPRINT_UPDATE = "sprint_update"
-    DEPLOYMENT = "deployment" 
-    ASSIGNMENT_CHANGE = "assignment_change" # Tracking adds/removes
-
+    SPRINT_STARTED = "sprint_started"
+    SPRINT_ENDED = "sprint_ended"
 # --- 3. BASE MODEL ---
 class BaseModelId(BaseModel):
     """Base class for all models to handle _id mapping"""
@@ -87,20 +83,33 @@ class Sprint(BaseModelId):
     is_active: bool = True
 
 class WorkSession(BaseModelId):
-    """
-    THE TIME TRACKER.
-    One task can have MANY work sessions by MANY users.
-    """
+    """TIME TRACKING ONLY - answers 'how long did someone work?'"""
     task_id: PyObjectId
     user_id: PyObjectId
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    duration_minutes: float = 0.0
+    assigned_by_user_id: Optional[PyObjectId] = None
+
+class ActivityLog(BaseModelId):
+    """EVENT STREAM ONLY - answers 'what happened?'"""
+    user_id: PyObjectId
+    task_id: Optional[PyObjectId] = None
+    project_id: PyObjectId
     
-    start_time: datetime = Field(default_factory=datetime.utcnow)
-    end_time: Optional[datetime] = None  # None means "Currently Working"
+    # REMOVE work_session_id - activities are independent events
     
-    duration_minutes: float = 0.0 # Calculated when end_time is set
+    activity_type: ActivityType  # commit, PR, comment, etc.
+    content: str
+    timestamp: datetime
+    embedding: List[float]
     
-    # Audit trail: Who added them? (e.g., "Manager Bob assigned Alice")
-    assigned_by_user_id: Optional[PyObjectId] = None 
+    # Impact metrics (for commits/PRs)
+    files_touched: int = 0
+    lines_added: int = 0
+    lines_deleted: int = 0
+
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class Task(BaseModelId):
     """The Work Item"""
@@ -132,31 +141,6 @@ class Task(BaseModelId):
     
     created_at: datetime
     updated_at: datetime
-
-class ActivityLog(BaseModelId):
-    """The Event Stream"""
-    user_id: PyObjectId
-    task_id: Optional[PyObjectId] = None
-    project_id: PyObjectId
-
-    work_session_id: Optional[PyObjectId] = None # if none then can be used for anayltics ki pp are owrking on unassigned tasks or general project activity
-
-    activity_type: ActivityType
-    content: str 
-    timestamp: datetime
-
-    # Semantic Search for "Activity Relevance"
-    # Matches Activity Content to Task Description
-    embedding: List[float] = Field(default_factory=list)
-
-    # Impact Metrics
-    files_touched: int = 0
-    lines_added: int = 0
-    lines_deleted: int = 0
-    
-    # Metadata for raw webhook JSON (e.g., { "pr_link": "...", "reviewer": "Bob" })
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
 
 class Issue(BaseModelId):
     """
