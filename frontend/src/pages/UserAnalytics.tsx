@@ -253,101 +253,101 @@ export default function UserAnalytics() {
 
             {/* Cost & Value Analysis */}
             {valueData && (
-              <div className="card mb-8 bg-[rgb(var(--color-surface))] border-[rgb(var(--color-border))]">
-                <div className="card-header border-b border-[rgb(var(--color-border))]">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-[rgba(198,115,89,0.15)] rounded-lg">
-                        <BrainCircuit className="w-5 h-5 text-[rgb(var(--color-accent))]" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-0 text-[rgb(var(--color-text-primary))]">AI Cost & Value Analysis</h3>
-                        <p className="text-xs text-[rgb(var(--color-text-tertiary))] mt-1">
-                          Estimated ROI based on code impact (Last 30 Days)
-                        </p>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {/* Cost Summary Card */}
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[rgba(198,115,89,0.12)] flex items-center justify-center">
+                      <DollarSign className="w-6 h-6 text-[rgb(var(--color-accent))]" />
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-xs text-[rgb(var(--color-text-tertiary))] uppercase font-semibold">Total Cost</div>
-                        <div className="text-xl font-bold text-[rgb(var(--color-text-primary))]">
-                          ${valueData.total_cost.toLocaleString()}
-                        </div>
+                    <div className="stat-label">Estimated Cost (30d)</div>
+                    <div className="stat-value">${valueData.total_cost.toLocaleString()}</div>
+                    <div className="text-xs text-[rgb(var(--color-text-tertiary))] mt-2">
+                      @ ${valueData.hourly_rate}/hr
+                    </div>
+                  </div>
+                </div>
+
+                {/* Value Score Card */}
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[rgba(120,180,120,0.12)] flex items-center justify-center">
+                      <BrainCircuit className="w-6 h-6 text-[rgb(var(--color-success))]" />
+                    </div>
+                    <div className="stat-label">Value Score</div>
+                    <div className="stat-value">{valueData.total_value_score}</div>
+                    <div className="text-xs text-[rgb(var(--color-text-tertiary))] mt-2">
+                      AI-assessed impact
+                    </div>
+                  </div>
+                </div>
+
+                {/* ROI Card */}
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[rgba(135,165,200,0.12)] flex items-center justify-center">
+                      <Target className="w-6 h-6 text-[rgb(var(--color-info))]" />
+                    </div>
+                    <div className="stat-label">ROI Ratio</div>
+                    <div className={`stat-value ${valueData.roi_ratio > 1.5 ? 'text-[rgb(var(--color-success))]' : ''}`}>
+                      {valueData.roi_ratio}x
+                    </div>
+                    <div className="mt-3">
+                      <div className="progress">
+                        <div 
+                          className={`progress-bar ${valueData.roi_ratio > 1.5 ? 'bg-[rgb(var(--color-success))]' : ''}`} 
+                          style={{ width: `${Math.min(valueData.roi_ratio * 30, 100)}%` }}
+                        />
                       </div>
-                      <div className="text-right pl-4 border-l border-[rgb(var(--color-border))]">
-                        <div className="text-xs text-[rgb(var(--color-text-tertiary))] uppercase font-semibold">Value Score</div>
-                        <div className="text-xl font-bold text-[rgb(var(--color-text-primary))]">
-                          {valueData.total_value_score}
-                        </div>
+                      <div className="text-xs text-[rgb(var(--color-text-tertiary))] mt-2">
+                        &gt;1.5x = high value delivery
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="card-body">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* ROI Meter */}
-                    <div className="col-span-1 border-r border-[rgb(var(--color-border))] pr-6">
-                      <h4 className="text-sm font-semibold text-[rgb(var(--color-text-primary))] mb-4 flex items-center gap-2">
-                        <Target className="w-4 h-4" /> Efficiency Rating
-                      </h4>
-                      <div className="space-y-4">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[rgb(var(--color-text-tertiary))]">Hourly Rate</span>
-                          <span className="font-mono font-medium">${valueData.hourly_rate}/hr</span>
+              </div>
+            )}
+
+            {/* High Impact Commits */}
+            {valueData && valueData.high_impact_commits.length > 0 && (
+              <div className="card mb-8">
+                <div className="card-header flex items-center gap-2">
+                  <BrainCircuit className="w-5 h-5 text-[rgb(var(--color-accent))]" />
+                  <div>
+                    <h3 className="text-lg font-semibold mb-0">Top Value Contributions</h3>
+                    <p className="text-xs text-[rgb(var(--color-text-tertiary))] mt-1">
+                      Highest-impact commits ranked by AI analysis
+                    </p>
+                  </div>
+                </div>
+                <div className="card-body p-0">
+                  <div className="divide-y divide-[rgb(var(--color-border))]">
+                    {valueData.high_impact_commits.map((commit, i) => (
+                      <div key={i} className="p-4 hover:bg-[rgb(var(--color-surface-secondary))] transition-colors flex items-start gap-4">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[rgb(var(--color-surface-secondary))] border border-[rgb(var(--color-border))] flex items-center justify-center">
+                          <span className="text-sm font-bold text-[rgb(var(--color-accent))]">{commit.score}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[rgb(var(--color-text-tertiary))]">ROI Ratio</span>
-                          <span className={`font-mono font-bold ${valueData.roi_ratio > 1.5 ? 'text-[rgb(var(--color-success))]' : 'text-[rgb(var(--color-text-primary))]'}`}>
-                            {valueData.roi_ratio}x
-                          </span>
-                        </div>
-                        <div className="w-full bg-[rgb(var(--color-surface-secondary))] rounded-full h-2 mt-2">
-                          <div 
-                            className={`h-2 rounded-full ${valueData.roi_ratio > 1.5 ? 'bg-[rgb(var(--color-success))]' : 'bg-[rgb(var(--color-accent))]'}`} 
-                            style={{ width: `${Math.min(valueData.roi_ratio * 30, 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-[rgb(var(--color-text-tertiary))] mt-2">
-                          * ROI of &gt;1.5x indicates high value delivery relative to cost.
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* High Impact Commits */}
-                    <div className="col-span-2">
-                      <h4 className="text-sm font-semibold text-[rgb(var(--color-text-primary))] mb-4">Top Value Contributions</h4>
-                      <div className="space-y-3">
-                        {valueData.high_impact_commits.map((commit, i) => (
-                          <div key={i} className="bg-[rgb(var(--color-surface))] p-3 rounded-lg border border-[rgb(var(--color-border))] shadow-sm">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-mono text-xs px-1.5 py-0.5 bg-[rgb(var(--color-surface-secondary))] rounded text-[rgb(var(--color-text-secondary))]">
-                                    {commit.hash}
-                                  </span>
-                                  <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded
-                                    ${commit.complexity === 'high' ? 'bg-[rgba(205,100,100,0.15)] text-[rgb(var(--color-error))]' : 
-                                      commit.complexity === 'medium' ? 'bg-[rgba(218,175,95,0.15)] text-[rgb(var(--color-warning))]' : 
-                                      'bg-[rgba(120,180,120,0.15)] text-[rgb(var(--color-success))]'}`}>
-                                    {commit.complexity} Complexity
-                                  </span>
-                                </div>
-                                <p className="text-sm font-medium text-[rgb(var(--color-text-primary))] line-clamp-1">
-                                  {commit.message}
-                                </p>
-                                <p className="text-xs text-[rgb(var(--color-text-tertiary))] mt-1 line-clamp-2">
-                                  "{commit.reasoning}"
-                                </p>
-                              </div>
-                              <div className="ml-4 text-center">
-                                <div className="text-xs text-[rgb(var(--color-text-tertiary))] font-semibold uppercase">Score</div>
-                                <div className="text-lg font-bold text-[rgb(var(--color-accent))]">{commit.score}</div>
-                              </div>
-                            </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs px-1.5 py-0.5 bg-[rgb(var(--color-surface-secondary))] rounded text-[rgb(var(--color-text-secondary))]">
+                              {commit.hash}
+                            </span>
+                            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded
+                              ${commit.complexity === 'high' ? 'bg-[rgba(205,100,100,0.15)] text-[rgb(var(--color-error))]' : 
+                                commit.complexity === 'medium' ? 'bg-[rgba(218,175,95,0.15)] text-[rgb(var(--color-warning))]' : 
+                                'bg-[rgba(120,180,120,0.15)] text-[rgb(var(--color-success))]'}`}>
+                              {commit.complexity}
+                            </span>
                           </div>
-                        ))}
+                          <p className="text-sm font-medium text-[rgb(var(--color-text-primary))] truncate">
+                            {commit.message}
+                          </p>
+                          <p className="text-xs text-[rgb(var(--color-text-tertiary))] mt-1 line-clamp-1">
+                            {commit.reasoning}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>

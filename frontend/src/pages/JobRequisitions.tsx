@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Briefcase, MapPin, Upload, CheckCircle, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { MapPin, Upload, CheckCircle, AlertCircle, Loader2, Clock } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
-import { jobAPI, linkedinAPI } from '../lib/api';
+import { jobAPI } from '../lib/api';
 
 interface JobRequisition {
   _id: string;
@@ -10,31 +10,7 @@ interface JobRequisition {
   required_skills: string[];
   status: string;
   created_at: string;
-  linkedin_job_title_text?: string;
-  linkedin_location_text?: string;
-  linkedin_job_id?: string;
-}
-
-interface SearchResult {
-  id: string;
-  name: string;
-}
-
-// Debounce hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
+  location?: string;
 }
 
 export default function JobRequisitions() {
@@ -44,47 +20,20 @@ export default function JobRequisitions() {
   const [selectedReq, setSelectedReq] = useState<JobRequisition | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Modal state
+  // Modal state — simple text inputs
   const [posting, setPosting] = useState(false);
-  const [titleQuery, setTitleQuery] = useState('');
-  const [locationQuery, setLocationQuery] = useState('');
-  const [titleResults, setTitleResults] = useState<SearchResult[]>([]);
-  const [locationResults, setLocationResults] = useState<SearchResult[]>([]);
-  const [selectedTitle, setSelectedTitle] = useState<SearchResult | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<SearchResult | null>(null);
-  const [searchingTitles, setSearchingTitles] = useState(false);
-  const [searchingLocations, setSearchingLocations] = useState(false);
-
-  // Debounced search queries
-  const debouncedTitleQuery = useDebounce(titleQuery, 1500);
-  const debouncedLocationQuery = useDebounce(locationQuery,1500);
+  const [titleInput, setTitleInput] = useState('');
+  const [locationInput, setLocationInput] = useState('');
 
   useEffect(() => {
     loadRequisitions();
   }, []);
 
-  // Auto-search when debounced query changes
-  useEffect(() => {
-    if (debouncedTitleQuery && debouncedTitleQuery.length >= 3 && !selectedTitle) {
-      searchTitles(debouncedTitleQuery);
-    } else if (debouncedTitleQuery.length < 3) {
-      setTitleResults([]);
-    }
-  }, [debouncedTitleQuery]);
-
-  useEffect(() => {
-    if (debouncedLocationQuery && debouncedLocationQuery.length >= 3 && !selectedLocation) {
-      searchLocations(debouncedLocationQuery);
-    } else if (debouncedLocationQuery.length < 3) {
-      setLocationResults([]);
-    }
-  }, [debouncedLocationQuery]);
-
   const loadRequisitions = async () => {
     try {
       const [pendingRes, approvedRes] = await Promise.all([
         jobAPI.list({ status: 'pending' }),
-        jobAPI.list({ status: 'ready,posted' })
+        jobAPI.list({ status: 'approved,ready,posted' })
       ]);
       setPendingReqs(pendingRes.data);
       setApprovedReqs(approvedRes.data);
@@ -97,60 +46,26 @@ export default function JobRequisitions() {
 
   const handleOpenModal = (req: JobRequisition) => {
     setSelectedReq(req);
-    // Use empty string, not suggested title - that becomes placeholder
-    setTitleQuery('');
-    setLocationQuery('');
-    setSelectedTitle(null);
-    setSelectedLocation(null);
-    setTitleResults([]);
-    setLocationResults([]);
+    setTitleInput(req.suggested_title);
+    setLocationInput(req.location || '');
     setIsModalOpen(true);
   };
 
-  const searchTitles = async (query: string) => {
-    setSearchingTitles(true);
-    try {
-      const res = await linkedinAPI.searchJobTitles(query);
-      setTitleResults(res.data.results);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSearchingTitles(false);
-    }
-  };
-
-  const searchLocations = async (query: string) => {
-    setSearchingLocations(true);
-    try {
-      const res = await linkedinAPI.searchLocations(query);
-      setLocationResults(res.data.results);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSearchingLocations(false);
-    }
-  };
-
-  const handlePost = async () => {
-    if (!selectedReq || !selectedTitle || !selectedLocation) return;
+  const handleApprove = async () => {
+    if (!selectedReq || !titleInput.trim() || !locationInput.trim()) return;
     
     setPosting(true);
     try {
-      await jobAPI.update(selectedReq._id, {
-        linkedin_job_title_id: selectedTitle.id,
-        linkedin_job_title_text: selectedTitle.name,
-        linkedin_location_id: selectedLocation.id,
-        linkedin_location_text: selectedLocation.name,
+      await jobAPI.approve(selectedReq._id, {
+        title: titleInput.trim(),
+        location: locationInput.trim(),
       });
-
-      await jobAPI.post(selectedReq._id);
       
       setIsModalOpen(false);
       loadRequisitions();
-      alert('Job posted successfully!');
     } catch (err) {
-      console.error('Failed to post job:', err);
-      alert('Failed to post job. Please try again.');
+      console.error('Failed to approve job:', err);
+      alert('Failed to approve job. Please try again.');
     } finally {
       setPosting(false);
     }
@@ -175,16 +90,10 @@ export default function JobRequisitions() {
                 <span key={i} className="badge badge-neutral text-xs">{skill}</span>
               ))}
             </div>
-            {req.linkedin_job_title_text && (
-              <div className="text-sm text-[rgb(var(--color-text-secondary))] mb-1">
-                <Briefcase className="w-3 h-3 inline mr-1" />
-                {req.linkedin_job_title_text}
-              </div>
-            )}
-            {req.linkedin_location_text && (
+            {req.location && (
               <div className="text-sm text-[rgb(var(--color-text-secondary))] mb-1">
                 <MapPin className="w-3 h-3 inline mr-1" />
-                {req.linkedin_location_text}
+                {req.location}
               </div>
             )}
             <div className="text-sm text-[rgb(var(--color-text-tertiary))] mt-2">
@@ -198,7 +107,7 @@ export default function JobRequisitions() {
               className="btn btn-primary btn-sm gap-2"
             >
               <Upload className="w-4 h-4" />
-              Review & Upload
+              Review & Approve
             </button>
           )}
         </div>
@@ -265,118 +174,48 @@ export default function JobRequisitions() {
 
         {isModalOpen && selectedReq && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="card w-full max-w-2xl bg-[rgb(var(--color-surface))] shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="card w-full max-w-lg bg-[rgb(var(--color-surface))] shadow-xl">
               <div className="card-body p-6">
-                <h2 className="text-2xl font-bold mb-6">Upload to LinkedIn</h2>
+                <h2 className="text-2xl font-bold mb-2">Approve Job Requisition</h2>
+                <p className="text-sm text-[rgb(var(--color-text-secondary))] mb-6">
+                  Confirm or edit the title and location, then approve.
+                </p>
                 
-                <div className="space-y-6">
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">LinkedIn Job Title</span>
-                    </label>
-                    <div className="relative">
-                      <input 
-                        type="text"
-                        className="input w-full"
-                        placeholder={selectedReq.suggested_title}
-                        value={titleQuery}
-                        onChange={(e) => {
-                          setTitleQuery(e.target.value);
-                          setSelectedTitle(null);
-                        }}
-                      />
-                      {searchingTitles && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <Loader2 className="w-4 h-4 animate-spin text-[rgb(var(--color-text-tertiary))]" />
-                        </div>
-                      )}
-                      {titleResults.length > 0 && !selectedTitle && (
-                        <ul className="absolute z-10 w-full bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
-                          {titleResults.map((res) => (
-                            <li 
-                              key={res.id}
-                              className="p-2 hover:bg-[rgb(var(--color-background))] cursor-pointer"
-                              onClick={() => {
-                                setSelectedTitle(res);
-                                setTitleQuery(res.name);
-                                setTitleResults([]);
-                              }}
-                            >
-                              {res.name}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    {selectedTitle && (
-                      <div className="mt-1 text-sm text-[rgb(var(--color-success))] flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" /> Selected: {selectedTitle.name}
-                      </div>
-                    )}
-                    {!selectedTitle && titleQuery.length > 0 && titleQuery.length < 3 && (
-                      <div className="mt-1 text-xs text-[rgb(var(--color-text-tertiary))]">
-                        Type at least 3 characters to search...
-                      </div>
-                    )}
+                <div className="space-y-5">
+                  <div>
+                    <label className="label">Job Title</label>
+                    <input 
+                      type="text"
+                      className="input w-full"
+                      placeholder="e.g., Senior React Developer"
+                      value={titleInput}
+                      onChange={(e) => setTitleInput(e.target.value)}
+                    />
                   </div>
 
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">Location</span>
-                    </label>
-                    <div className="relative">
-                      <input 
-                        type="text"
-                        className="input w-full"
-                        placeholder="e.g., San Francisco, CA"
-                        value={locationQuery}
-                        onChange={(e) => {
-                          setLocationQuery(e.target.value);
-                          setSelectedLocation(null);
-                        }}
-                      />
-                      {searchingLocations && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <Loader2 className="w-4 h-4 animate-spin text-[rgb(var(--color-text-tertiary))]" />
-                        </div>
-                      )}
-                      {locationResults.length > 0 && !selectedLocation && (
-                        <ul className="absolute z-10 w-full bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
-                          {locationResults.map((res) => (
-                            <li 
-                              key={res.id}
-                              className="p-2 hover:bg-[rgb(var(--color-background))] cursor-pointer"
-                              onClick={() => {
-                                setSelectedLocation(res);
-                                setLocationQuery(res.name);
-                                setLocationResults([]);
-                              }}
-                            >
-                              {res.name}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    {selectedLocation && (
-                      <div className="mt-1 text-sm text-[rgb(var(--color-success))] flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" /> Selected: {selectedLocation.name}
-                      </div>
-                    )}
-                    {!selectedLocation && locationQuery.length > 0 && locationQuery.length < 3 && (
-                      <div className="mt-1 text-xs text-[rgb(var(--color-text-tertiary))]">
-                        Type at least 3 characters to search...
-                      </div>
-                    )}
+                  <div>
+                    <label className="label">Location</label>
+                    <input 
+                      type="text"
+                      className="input w-full"
+                      placeholder="e.g., Remote, San Francisco, CA"
+                      value={locationInput}
+                      onChange={(e) => setLocationInput(e.target.value)}
+                    />
                   </div>
-                  
-                  <div className="alert alert-info text-sm">
-                    <AlertCircle className="w-4 h-4" />
-                    <span>This will create a draft job posting on LinkedIn.</span>
+
+                  {/* Skills preview */}
+                  <div>
+                    <label className="label">Required Skills</label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedReq.required_skills?.map((skill, i) => (
+                        <span key={i} className="badge badge-neutral text-xs">{skill}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="card-actions justify-end mt-8">
+                <div className="flex justify-end gap-3 mt-8">
                   <button 
                     className="btn btn-ghost" 
                     onClick={() => setIsModalOpen(false)}
@@ -385,11 +224,16 @@ export default function JobRequisitions() {
                     Cancel
                   </button>
                   <button 
-                    className="btn btn-primary"
-                    onClick={handlePost}
-                    disabled={!selectedTitle || !selectedLocation || posting}
+                    className="btn btn-primary gap-2"
+                    onClick={handleApprove}
+                    disabled={!titleInput.trim() || !locationInput.trim() || posting}
                   >
-                    {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Upload & Post'}
+                    {posting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    Approve & Publish
                   </button>
                 </div>
               </div>

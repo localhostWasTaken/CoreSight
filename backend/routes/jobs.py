@@ -107,10 +107,15 @@ async def update_job_requisition(requisition_id: str, update: JobRequisitionUpda
         raise HTTPException(status_code=503, detail=str(e))
 
 
+class JobApproveRequest(BaseModel):
+    title: Optional[str] = None
+    location: Optional[str] = None
+
+
 @router.post("/requisitions/{requisition_id}/approve", response_model=dict)
-async def approve_job_requisition(requisition_id: str):
+async def approve_job_requisition(requisition_id: str, body: Optional[JobApproveRequest] = None):
     """
-    Approve a job requisition.
+    Approve a job requisition with optional title and location update.
     
     Once approved, the job will be visible on the public careers page.
     """
@@ -118,12 +123,26 @@ async def approve_job_requisition(requisition_id: str):
         db = get_db()
         service = JobService(db)
         
+        # Update title and location if provided
+        if body:
+            update_data = {}
+            if body.title:
+                update_data["title"] = body.title
+            if body.location:
+                update_data["location"] = body.location
+            if update_data:
+                await service.update_job_requisition(requisition_id, update_data)
+        
         success = await service.approve_job_requisition(requisition_id)
         
         if not success:
             raise HTTPException(status_code=404, detail="Job requisition not found")
         
-        return {"message": "Job requisition approved - now visible on careers page"}
+        requisition = await service.get_job_requisition(requisition_id)
+        return {
+            "message": "Job requisition approved - now visible on careers page",
+            "requisition": serialize_doc(requisition)
+        }
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 

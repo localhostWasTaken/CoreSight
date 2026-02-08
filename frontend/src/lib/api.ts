@@ -83,7 +83,7 @@ export const jobAPI = {
   get: (id: string) => api.get(`/api/jobs/requisitions/${id}`),
   update: (id: string, data: any) => api.patch(`/api/jobs/requisitions/${id}`, data),
   post: (id: string) => api.post(`/api/jobs/requisitions/${id}/post`),
-  approve: (id: string) => api.post(`/api/jobs/requisitions/${id}/approve`),
+  approve: (id: string, data?: { title?: string; location?: string }) => api.post(`/api/jobs/requisitions/${id}/approve`, data || {}),
   delete: (id: string) => api.delete(`/api/jobs/requisitions/${id}`),
 };
 
