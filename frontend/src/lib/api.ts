@@ -31,7 +31,7 @@ export const taskAPI = {
   list: (params?: any) => api.get('/api/tasks', { params }),
   get: (id: string) => api.get(`/api/tasks/${id}`),
   update: (id: string, data: any) => api.patch(`/api/tasks/${id}`, data),
-  assign: (taskId: string, userId: string) => 
+  assign: (taskId: string, userId: string) =>
     api.post(`/api/tasks/${taskId}/assign/${userId}`),
 };
 
@@ -44,13 +44,13 @@ export const projectAPI = {
 };
 
 export const analyticsAPI = {
-  userImpact: (userId: string) => 
+  userImpact: (userId: string) =>
     api.get(`/api/analytics/user/${userId}/impact_breakdown`),
-  taskCost: (taskId: string) => 
+  taskCost: (taskId: string) =>
     api.get(`/api/analytics/task/${taskId}/cost_breakdown`),
-  focusHealth: (params?: any) => 
+  focusHealth: (params?: any) =>
     api.get('/api/analytics/team/focus_health', { params }),
-  topContributors: (params?: any) => 
+  topContributors: (params?: any) =>
     api.get('/api/analytics/team/top_contributors', { params }),
 };
 
@@ -76,4 +76,9 @@ export const jobAPI = {
 export const linkedinAPI = {
   searchLocations: (query: string) => api.get('/api/linkedin/search/locations', { params: { query } }),
   searchJobTitles: (query: string) => api.get('/api/linkedin/search/job-titles', { params: { query } }),
+};
+
+// Public API (no auth required)
+export const publicAPI = {
+  careers: () => axios.get(`${API_BASE_URL}/api/public/careers`),
 };

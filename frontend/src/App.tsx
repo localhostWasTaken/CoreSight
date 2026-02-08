@@ -10,6 +10,7 @@ import Projects from './pages/Projects';
 import Analytics from './pages/Analytics';
 import Activity from './pages/Activity';
 import JobRequisitions from './pages/JobRequisitions';
+import Careers from './pages/Careers';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/careers" element={<Careers />} />
 
           {/* Protected Routes */}
           <Route
