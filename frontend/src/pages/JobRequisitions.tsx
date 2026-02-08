@@ -4,7 +4,7 @@ import AdminLayout from '../components/AdminLayout';
 import { jobAPI } from '../lib/api';
 
 interface JobRequisition {
-  _id: string;
+  id: string;
   suggested_title: string;
   description: string;
   required_skills: string[];
@@ -56,7 +56,7 @@ export default function JobRequisitions() {
     
     setPosting(true);
     try {
-      await jobAPI.approve(selectedReq._id, {
+      await jobAPI.approve(selectedReq.id, {
         title: titleInput.trim(),
         location: locationInput.trim(),
       });
@@ -72,7 +72,7 @@ export default function JobRequisitions() {
   };
 
   const renderRequisitionCard = (req: JobRequisition, isPending: boolean) => (
-    <div key={req._id} className="card hover:border-[rgb(var(--color-accent))] transition-colors">
+    <div key={req.id} className="card hover:border-[rgb(var(--color-accent))] transition-colors">
       <div className="card-body">
         <div className="flex justify-between items-start">
           <div className="flex-1">

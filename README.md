@@ -32,20 +32,21 @@ CoreSight transforms raw engineering activity into **actionable business intelli
 ## 🏗️ Architecture
 
 ```
-coreinsights/
+CoreSight/
 ├── backend/                    # FastAPI Backend (Python)
 │   ├── main.py                 # Application entry point
 │   ├── routes/                 # API endpoints (10 routers)
 │   ├── services/               # Business logic layer
 │   ├── ai/                     # AI/ML utilities
 │   ├── entities/               # Pydantic models
+│   ├── scripts/                # DB init & seed scripts
 │   └── utils/                  # Database & auth utilities
 └── frontend/                   # React Frontend (TypeScript)
     └── src/
         ├── pages/              # Application pages
-        ├── components/         # Reusable components
-        ├── contexts/           # React contexts
-        └── lib/                # Utilities
+        ├── components/         # Layout & route guards
+        ├── contexts/           # Auth context
+        └── lib/                # API client & utilities
 ```
 
 ---
@@ -159,13 +160,11 @@ cd frontend
 # Install dependencies
 npm install
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your backend API URL
-
 # Run dev server
 npm run dev
 ```
+
+> **Note:** The frontend uses a Vite dev-server proxy (`/api` → `http://localhost:8000`) so no `VITE_API_URL` configuration is needed during local development.
 
 ---
 
@@ -186,7 +185,7 @@ npm run dev
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_API_URL` | Backend API URL |
+| `VITE_API_URL` | Backend API URL (leave empty for local dev — Vite proxy handles it) |
 
 ---
 
@@ -248,4 +247,4 @@ This project was created for the DataZen Hackathon at Somaiya Vidyavihar Univers
 
 ## 👥 Team
 
-CoreSight Intelligence Engine - Version 1.0.0
+CoreSight Intelligence Engine — Version 1.1.0
