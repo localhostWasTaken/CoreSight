@@ -5,10 +5,11 @@ Handles job requisition management endpoints.
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 
 from utils import get_db, serialize_doc
+from utils.auth import require_admin
 from services.job_service import JobService
 
 
@@ -21,6 +22,11 @@ class JobRequisitionUpdate(BaseModel):
     location: Optional[str] = None        # Job location (e.g., "Remote", "New York")
     workplace_type: Optional[str] = None
     employment_type: Optional[str] = None
+
+
+class JobFinalizeRequest(BaseModel):
+    title: str                            # Final job title
+    location: str                         # Final job location
 
 
 # Endpoints
@@ -137,5 +143,49 @@ async def delete_job_requisition(requisition_id: str):
             raise HTTPException(status_code=404, detail="Job requisition not found")
         
         return {"message": "Job requisition deleted successfully"}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.post("/requisitions/{requisition_id}/finalize", response_model=dict)
+async def finalize_job_requisition(
+    requisition_id: str,
+    request: JobFinalizeRequest,
+    admin: dict = Depends(require_admin)
+):
+    """
+    Finalize and approve a job requisition.
+    
+    Admin sets the final job title and location, then the job is approved
+    and becomes visible on the public careers page.
+    
+    Requires admin authentication.
+    """
+    try:
+        db = get_db()
+        service = JobService(db)
+        
+        # Check requisition exists
+        requisition = await service.get_job_requisition(requisition_id)
+        if not requisition:
+            raise HTTPException(status_code=404, detail="Job requisition not found")
+        
+        # Update with final title and location
+        update_data = {
+            "title": request.title,
+            "location": request.location,
+        }
+        await service.update_job_requisition(requisition_id, update_data)
+        
+        # Approve the requisition
+        await service.approve_job_requisition(requisition_id)
+        
+        # Get updated requisition
+        updated = await service.get_job_requisition(requisition_id)
+        
+        return {
+            "message": "Job requisition finalized and approved",
+            "requisition": serialize_doc(updated)
+        }
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
