@@ -292,3 +292,88 @@ async def get_analytics_summary():
             ]
         }
     }
+
+
+# ============================================================================
+# LIVE DASHBOARD ENDPOINTS
+# ============================================================================
+
+@router.get(
+    "/overview",
+    summary="Get Analytics Overview Stats",
+    description="Get high-level stats for the analytics dashboard"
+)
+async def get_overview_stats():
+    """Get overview statistics: total commits, projects, contributors, lines of code."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_overview_stats()
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get overview stats: {str(e)}"
+        )
+
+
+@router.get(
+    "/projects",
+    summary="Get Project-wise Analytics",
+    description="Get analytics grouped by project"
+)
+async def get_project_analytics(
+    project_id: Optional[str] = Query(None, description="Optional project ID to filter")
+):
+    """Get per-project metrics: commits, lines, contributors."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_project_analytics(project_id)
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get project analytics: {str(e)}"
+        )
+
+
+@router.get(
+    "/commits/activity",
+    summary="Get Commit Activity Timeline",
+    description="Get commit activity over time for charts"
+)
+async def get_commit_activity(
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    user_id: Optional[str] = Query(None, description="Optional user ID to filter")
+):
+    """Get daily commit activity for timeline charts."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_commit_activity(days=days, user_id=user_id)
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get commit activity: {str(e)}"
+        )
+
+
+@router.get(
+    "/work-types",
+    summary="Get Work Type Breakdown from Jira",
+    description="Categorize work based on Jira issue types (Bug=refactor, Feature=new dev)"
+)
+async def get_work_type_breakdown():
+    """Get work categorization based on Jira task types."""
+    try:
+        db = get_db()
+        service = AnalyticsService(db)
+        result = await service.get_work_type_breakdown()
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get work type breakdown: {str(e)}"
+        )

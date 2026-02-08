@@ -33,6 +33,13 @@ export default function Projects() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [contributors, setContributors] = useState<Contributor[]>([]);
   const [loadingContributors, setLoadingContributors] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newProject, setNewProject] = useState({
+    name: '',
+    repo_url: '',
+    jira_space_id: '',
+    total_budget: 0
+  });
 
   useEffect(() => {
     loadProjects();
@@ -68,6 +75,19 @@ export default function Projects() {
     }
   };
 
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await projectAPI.create(newProject);
+      setIsCreateModalOpen(false);
+      setNewProject({ name: '', repo_url: '', jira_space_id: '', total_budget: 0 });
+      loadProjects();
+    } catch (err) {
+      console.error('Failed to create project:', err);
+      alert('Failed to create project. Please try again.');
+    }
+  };
+
   const getProjectId = (project: Project) => project.id || project._id || '';
 
   const getSpentPercentage = (project: Project) => {
@@ -86,7 +106,10 @@ export default function Projects() {
               Manage your project portfolio and budgets
             </p>
           </div>
-          <button className="btn btn-primary">
+          <button 
+            className="btn btn-primary"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
             <Plus className="w-4 h-4" />
             New Project
           </button>
@@ -229,6 +252,72 @@ export default function Projects() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Create Project Modal */}
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-[rgb(var(--color-surface))] p-6 rounded-lg w-full max-w-md shadow-xl border border-[rgb(var(--color-border))]">
+              <h2 className="text-xl font-bold mb-4">Create New Project</h2>
+              <form onSubmit={handleCreateProject} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Project Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="input w-full"
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Repository URL</label>
+                  <input
+                    type="url"
+                    className="input w-full"
+                    value={newProject.repo_url}
+                    onChange={(e) => setNewProject({ ...newProject, repo_url: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Jira Space ID</label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    value={newProject.jira_space_id}
+                    onChange={(e) => setNewProject({ ...newProject, jira_space_id: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Total Budget</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgb(var(--color-text-tertiary))]">
+                      <DollarSign className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input w-full pl-9"
+                      value={newProject.total_budget}
+                      onChange={(e) => setNewProject({ ...newProject, total_budget: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsCreateModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Create Project
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </div>

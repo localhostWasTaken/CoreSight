@@ -200,6 +200,7 @@ async def handle_github_webhook(request: Request):
                 "diff": combined_diff,
                 "author_email": author_email,
                 "author_name": author_name,
+                "user_id": user_id,  # Explicitly pass the user_id we found
                 "repository": repository_name,
                 "branch": branch,
                 "created_at": commits[-1].get("timestamp"),  # Extract timestamp from last commit

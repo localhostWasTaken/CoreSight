@@ -82,8 +82,21 @@ class CommitService:
             is_jira_tracked = bool(best_task.get("external_id"))
         
         # Step 4: Find author user
-        user = await find_user_by_email(self.db, author_email)
-        user_id = str(user["_id"]) if user else None
+        user_id = commit_data.get("user_id")
+        user = None
+        
+        if user_id:
+            # If user_id provided (e.g. from webhook), verify it exists
+            try:
+                user = await self.db.find_one("users", {"_id": ObjectId(user_id)})
+            except:
+                user = None
+        
+        if not user:
+            # Fallback to email lookup
+            user = await find_user_by_email(self.db, author_email)
+            if user:
+                user_id = str(user["_id"])
         
         # Create commit document
         commit_doc = {
@@ -97,7 +110,7 @@ class CommitService:
             "is_jira_tracked": is_jira_tracked,
             "author_email": author_email,
             "author_name": author_name,
-            "user_id": user_id,
+            "user_id": ObjectId(user_id) if user_id else None,
             "repository": repository,
             "branch": branch,
             "project_id": commit_data.get("project_id"),  # Link to project
@@ -193,7 +206,11 @@ class CommitService:
         """List commits with optional filters"""
         filters = {}
         if user_id:
-            filters["user_id"] = user_id
+            try:
+                filters["user_id"] = ObjectId(user_id)
+            except:
+                # If invalid ObjectId format, might be legacy string ID or invalid
+                filters["user_id"] = user_id
         if repository:
             filters["repository"] = repository
         return await self.db.find_many("commits", filters)

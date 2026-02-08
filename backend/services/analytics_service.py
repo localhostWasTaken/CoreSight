@@ -410,3 +410,280 @@ class AnalyticsService:
             },
             "user_details": user_analysis
         }
+    
+    # ============================================================================
+    # OVERVIEW STATS - DASHBOARD SUMMARY
+    # ============================================================================
+    
+    async def get_overview_stats(self) -> Dict[str, Any]:
+        """
+        Get high-level overview statistics with Jira task type breakdown.
+        """
+        # Get all data
+        commits = await self.db.find_many("commits", {})
+        projects = await self.db.find_many("projects", {})
+        users = await self.db.find_many("users", {})
+        tasks = await self.db.find_many("tasks", {})
+        
+        # Aggregate commit stats
+        total_commits = len(commits)
+        total_lines_added = sum(c.get("lines_added", 0) or 0 for c in commits)
+        total_lines_deleted = sum(c.get("lines_deleted", 0) or 0 for c in commits)
+        
+        # Count unique contributors from commits
+        contributor_ids = set()
+        for c in commits:
+            if c.get("user_id"):
+                contributor_ids.add(str(c.get("user_id")))
+            if c.get("author_email"):
+                contributor_ids.add(c.get("author_email"))
+        
+        # Task type breakdown (from Jira)
+        task_types = {}
+        for task in tasks:
+            t_type = task.get("type", "unknown")
+            if t_type not in task_types:
+                task_types[t_type] = 0
+            task_types[t_type] += 1
+        
+        # Map task types to work categories
+        work_breakdown = {
+            "new_feature": task_types.get("feature", 0) + task_types.get("story", 0) + task_types.get("epic", 0),
+            "refactor": task_types.get("bug", 0) + task_types.get("improvement", 0),
+            "maintenance": task_types.get("task", 0) + task_types.get("subtask", 0),
+            "other": sum(v for k, v in task_types.items() if k not in ["feature", "story", "epic", "bug", "improvement", "task", "subtask"])
+        }
+        
+        return {
+            "total_commits": total_commits,
+            "total_projects": len(projects),
+            "total_users": len(users),
+            "active_contributors": len(contributor_ids),
+            "total_lines_added": total_lines_added,
+            "total_lines_deleted": total_lines_deleted,
+            "net_lines": total_lines_added - total_lines_deleted,
+            "total_tasks": len(tasks),
+            "task_types": task_types,
+            "work_breakdown": work_breakdown
+        }
+    
+    # ============================================================================
+    # PROJECT-WISE ANALYTICS
+    # ============================================================================
+    
+    async def get_project_analytics(self, project_id: str = None) -> Dict[str, Any]:
+        """
+        Get analytics grouped by project with task type breakdown.
+        """
+        if project_id:
+            projects = [await self.db.find_one("projects", {"_id": ObjectId(project_id)})]
+            projects = [p for p in projects if p]
+        else:
+            projects = await self.db.find_many("projects", {})
+        
+        # Get all commits once
+        all_commits = await self.db.find_many("commits", {})
+        all_tasks = await self.db.find_many("tasks", {})
+        
+        project_stats = []
+        
+        for project in projects:
+            pid = str(project.get("_id"))
+            project_name = project.get("name", "Unknown")
+            
+            # Find commits by multiple matching strategies
+            project_commits = []
+            for c in all_commits:
+                # Match by project_id
+                if str(c.get("project_id", "")) == pid:
+                    project_commits.append(c)
+                    continue
+                # Match by repository name (partial match)
+                repo = c.get("repository", "")
+                if repo and (project_name.lower() in repo.lower() or repo.lower() in project_name.lower()):
+                    project_commits.append(c)
+                    continue
+            
+            total_commits = len(project_commits)
+            lines_added = sum(c.get("lines_added", 0) or 0 for c in project_commits)
+            lines_deleted = sum(c.get("lines_deleted", 0) or 0 for c in project_commits)
+            
+            # Get unique contributors
+            contributor_set = set()
+            for c in project_commits:
+                if c.get("user_id"):
+                    contributor_set.add(str(c.get("user_id")))
+                elif c.get("author_name"):
+                    contributor_set.add(c.get("author_name"))
+            
+            # Get tasks for this project and categorize
+            project_tasks = [t for t in all_tasks if str(t.get("project_id", "")) == pid]
+            task_breakdown = {
+                "features": len([t for t in project_tasks if t.get("type") in ["feature", "story", "epic"]]),
+                "bugs": len([t for t in project_tasks if t.get("type") == "bug"]),
+                "tasks": len([t for t in project_tasks if t.get("type") in ["task", "subtask"]]),
+            }
+            
+            project_stats.append({
+                "project_id": pid,
+                "project_name": project_name,
+                "repo_url": project.get("repo_url", ""),
+                "total_commits": total_commits,
+                "lines_added": lines_added,
+                "lines_deleted": lines_deleted,
+                "net_lines": lines_added - lines_deleted,
+                "contributor_count": len(contributor_set),
+                "contributors": list(contributor_set)[:5],
+                "task_breakdown": task_breakdown,
+                "total_tasks": len(project_tasks)
+            })
+        
+        # Sort by commits descending
+        project_stats.sort(key=lambda x: x["total_commits"], reverse=True)
+        
+        return {
+            "projects": project_stats,
+            "total_projects": len(project_stats)
+        }
+    
+    # ============================================================================
+    # COMMIT ACTIVITY TIMELINE (PROJECT-WISE)
+    # ============================================================================
+    
+    async def get_commit_activity(self, days: int = 30, project_id: str = None, user_id: str = None) -> Dict[str, Any]:
+        """
+        Get commit activity over time, optionally filtered by project or user.
+        """
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Build query
+        query = {}
+        if project_id:
+            query["project_id"] = project_id
+        if user_id:
+            query["user_id"] = ObjectId(user_id)
+            
+        # Get all commits and projects
+        # Note: If filtering by user, we still want project breakdown
+        all_commits = await self.db.find_many("commits", query)
+        projects = await self.db.find_many("projects", {})
+        
+        # Build project name lookup
+        project_names = {str(p.get("_id")): p.get("name", "Unknown") for p in projects}
+        
+        # Initialize daily counts
+        daily_counts = {}
+        for i in range(days + 1):
+            date = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
+            daily_counts[date] = {
+                "date": date, 
+                "commits": 0, 
+                "lines_added": 0, 
+                "lines_deleted": 0,
+                "by_project": {}
+            }
+        
+        # Collect project activity
+        project_activity = {}
+        
+        for commit in all_commits:
+            committed_at = commit.get("committed_at") or commit.get("created_at")
+            if not committed_at:
+                continue
+                
+            # Parse date
+            if isinstance(committed_at, str):
+                try:
+                    committed_at = datetime.fromisoformat(committed_at.replace("Z", "+00:00"))
+                except:
+                    continue
+            
+            date_str = committed_at.strftime("%Y-%m-%d")
+            
+            # Determine project
+            commit_project = commit.get("repository", "Unknown")
+            for pid, pname in project_names.items():
+                if pname.lower() in commit_project.lower() or commit_project.lower() in pname.lower():
+                    commit_project = pname
+                    break
+            
+            # Track project activity
+            if commit_project not in project_activity:
+                project_activity[commit_project] = 0
+            project_activity[commit_project] += 1
+            
+            # Add to daily counts
+            if date_str in daily_counts:
+                daily_counts[date_str]["commits"] += 1
+                daily_counts[date_str]["lines_added"] += commit.get("lines_added", 0) or 0
+                daily_counts[date_str]["lines_deleted"] += commit.get("lines_deleted", 0) or 0
+                
+                # Track by project
+                if commit_project not in daily_counts[date_str]["by_project"]:
+                    daily_counts[date_str]["by_project"][commit_project] = 0
+                daily_counts[date_str]["by_project"][commit_project] += 1
+        
+        # Convert to sorted list
+        activity = sorted(daily_counts.values(), key=lambda x: x["date"])
+        
+        # Sort project activity
+        sorted_projects = sorted(project_activity.items(), key=lambda x: x[1], reverse=True)
+        
+        return {
+            "days": days,
+            "activity": activity,
+            "total_commits": sum(d["commits"] for d in activity),
+            "by_project": dict(sorted_projects)
+        }
+    
+    # ============================================================================
+    # WORK TYPE BREAKDOWN (FROM JIRA)
+    # ============================================================================
+    
+    async def get_work_type_breakdown(self) -> Dict[str, Any]:
+        """
+        Get work categorization based on Jira issue types.
+        Bug = Refactor/Maintenance
+        Feature/Story = New Development
+        """
+        tasks = await self.db.find_many("tasks", {})
+        
+        # Categorize by type
+        categories = {
+            "new_development": [],  # Features, Stories, Epics
+            "bug_fixes": [],        # Bugs
+            "maintenance": [],      # Tasks, Subtasks, Improvements
+            "other": []
+        }
+        
+        for task in tasks:
+            task_type = task.get("type", "").lower()
+            task_info = {
+                "id": str(task.get("_id")),
+                "title": task.get("title", ""),
+                "jira_key": task.get("jira_key", ""),
+                "status": task.get("status", ""),
+                "type": task_type
+            }
+            
+            if task_type in ["feature", "story", "epic"]:
+                categories["new_development"].append(task_info)
+            elif task_type == "bug":
+                categories["bug_fixes"].append(task_info)
+            elif task_type in ["task", "subtask", "improvement"]:
+                categories["maintenance"].append(task_info)
+            else:
+                categories["other"].append(task_info)
+        
+        return {
+            "summary": {
+                "new_development": len(categories["new_development"]),
+                "bug_fixes": len(categories["bug_fixes"]),
+                "maintenance": len(categories["maintenance"]),
+                "other": len(categories["other"]),
+                "total": len(tasks)
+            },
+            "details": categories
+        }
+

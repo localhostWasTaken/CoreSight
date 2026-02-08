@@ -52,6 +52,14 @@ export const analyticsAPI = {
     api.get('/api/analytics/team/focus_health', { params }),
   topContributors: (params?: any) => 
     api.get('/api/analytics/team/top_contributors', { params }),
+  overview: () => 
+    api.get('/api/analytics/overview'),
+  projects: (projectId?: string) => 
+    api.get('/api/analytics/projects', { params: projectId ? { project_id: projectId } : {} }),
+  commitActivity: (days: number = 30, userId?: string) => 
+    api.get('/api/analytics/commits/activity', { params: { days, user_id: userId } }),
+  workTypes: () => 
+    api.get('/api/analytics/work-types'),
 };
 
 export const commitAPI = {

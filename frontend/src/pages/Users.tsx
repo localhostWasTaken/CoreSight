@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UserPlus, Mail, Trash2, Edit } from 'lucide-react';
+import { UserPlus, Mail, Trash2, Edit, TrendingUp } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { userAPI } from '../lib/api';
 
@@ -164,6 +164,13 @@ export default function Users() {
                       </td>
                       <td>
                         <div className="flex gap-2 justify-end">
+                          <Link 
+                            to={`/users/${user.id}/analytics`}
+                            className="btn btn-ghost btn-sm text-[rgb(var(--color-info))] hover:bg-[rgb(var(--color-info))]/10"
+                            title="View Analytics"
+                          >
+                            <TrendingUp className="w-4 h-4" />
+                          </Link>
                           <Link 
                             to={`/users/${user.id}/edit`}
                             className="btn btn-ghost btn-sm"
